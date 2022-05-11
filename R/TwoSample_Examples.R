@@ -65,7 +65,7 @@ for(beta11 in c(0,-1,-4)){
     abline(h=true_vals$PIP_theor,col="red",lwd=2)
     abline(h=true_vals$PIP_exp ,col='blue',lwd=2)
     abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
-    points(means[c("pip_cond1","pip_cond2","emp_cond","pip_exp","emp_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
+    points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
     print(means)
     PIP = c(PIP,output[,c("pip_CV5")])
     pval = c(pval,output[,c("pval_mod1")])

@@ -1,5 +1,10 @@
 # Function to calculate the K-fold cross-validation PIP
 #
+
+require(mvnfast)
+require(Matrix)
+require(MASS)
+
 # Helper functions
 
 logit = function(x){
@@ -47,9 +52,7 @@ TRUE_PIPs_faster = function(beta01,beta11,sigma,prop1,sampsize){
 ## Empirical PIP
 
 Emp_PIP = function(dataset,total_n,prop1,beta01,beta11,sigma){
-  require(mvnfast)
-  require(Matrix)
-  require(MASS)
+
   xstar = c(rep(0,(1-prop1)*total_n),rep(1,prop1*total_n))
   ustar <- rnorm(total_n, sd = sigma)
   ystar = beta01 + beta11*xstar  + ustar
