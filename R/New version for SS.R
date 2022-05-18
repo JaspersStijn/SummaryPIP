@@ -188,6 +188,7 @@ save(output,file=paste0(paste(paste0("R/Output_Sims/sim_updatedSS_effect",abs(be
 
 new_output = output
 
+
 use = load(paste0(paste(paste0("R/Output_Sims/sim_effect",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
 output = get(use)
 colnames(output)[1] = "pip_C1"
@@ -240,6 +241,94 @@ plot(new_output[,"pval"],new_output[,"pip_CV5"],col="black")
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+for(sampsize in c(20,40,60,100,400)){
+
+  beta11=-1
+  use = load(paste0(paste(paste0("R/Output_Sims/sim_updatedSS_effect",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+  output = get(use)
+  new_output = output
+  pvals = new_output[,"pval"]
+
+  use = load(paste0(paste(paste0("R/Output_Sims/sim_effect",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+  output = get(use)
+
+  plot(new_output[,"pval"],new_output[,"pip_CV5"],xlab="p-value",ylab="PIP")
+  points(new_output[,"pval"],new_output[,"pip_SS_rep100"],col="red")
+  points(output[,"pval_mod1"],output[,"pip_exp"],col="darkgreen",pch=19)
+  lines(seq(0,max(max(pvals),4e-10),length=1000),sapply(seq(0,max(max(pvals),4e-10),length=1000),f_pip,n=sampsize),col="blue",lwd=2)
+  legend("topright",c("CV5","SS_rep100","Exp","Link_with_cond"),col=c("black","red","darkgreen","blue"),lty=c(NA,NA,NA,1),pch=c(1,1,19,NA),lwd=2)
+  title(paste(paste0("Beta11= ",beta11),paste0("Sampsize= ",sampsize),sep="   "))
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+PIP_SS = function(data,type){
+  dat = data
+  names(dat) = c("X","Y")
+  trainIndex <- createDataPartition(dat$X, p = .5,
+                                    list = FALSE,
+                                    times = 10000)
+
+  PIP = c()
+
+  if(type=="gaussian"){
+    for(j in 1:ncol(trainIndex)){
+      training = dat[ trainIndex[,j],]
+      testing  = dat[-trainIndex[,j],]
+
+      sub=training
+      mod1 = lm(Y ~ X, data = sub)
+      mod0 = lm(Y ~ 1, data = sub)
+
+      PIP = c(PIP,mean((testing$Y-predict(mod1,testing))^2<(testing$Y-predict(mod0,testing))^2))
+    }}
+
+  if(type=="binomial"){
+    for(j in 1:ncol(trainIndex)){
+      training = dat[ trainIndex[,j],]
+      testing  = dat[-trainIndex[,j],]
+      sub=training
+      mod1 = glm(Y ~ X, family="binomial", data=sub, maxit = 5000)
+      mod0 = glm(Y ~ 1, family="binomial", data=sub, maxit = 5000)
+      PIP = c(PIP,mean((testing$Y-predict(mod1,testing,type="response"))^2<(testing$Y-predict(mod0,testing,type="response"))^2))
+    }
+
+  }
+
+  pip_split_sample = mean(PIP)
+
+  return(pip_split_sample)
+}
 
 
 
