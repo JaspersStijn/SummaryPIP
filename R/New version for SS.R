@@ -132,7 +132,6 @@ do_SIM = function(i,beta11,sampsize){
     mod0 = lm(Y ~ 1, data = sub)
     PIP_sub10 = c(PIP_sub10,mean((testing$Y-predict(mod1,testing))^2<(testing$Y-predict(mod0,testing))^2))
   }
-
     cvIndex <- createFolds(factor(dat$X), 5, returnTrain = T)
     PIP_sub5 =c()
     for(j in names(cvIndex)){
@@ -144,7 +143,7 @@ do_SIM = function(i,beta11,sampsize){
       PIP_sub5 = c(PIP_sub5,mean((testing$Y-predict(mod1,testing))^2<(testing$Y-predict(mod0,testing))^2))
     }
 
-    PIP_sub5 =c()
+        PIP_sub5 =c()
     for(j in names(cvIndex)){
       training = dat[cvIndex[[j]],]
       testing = dat[-cvIndex[[j]],]
@@ -201,7 +200,8 @@ colnames(comp)[1] = "emp_cond"
 
 boxplot(comp)
 abline(h=mean(output[,c("emp_cond")]),col="red",lwd=2)
-abline(h=mean(output[,c("emp_exp")]),col="blue",lwd=2)
+#abline(h=mean(output[,c("emp_exp")]),col="blue",lwd=2)
+abline(h=use_emp$Exp_Emp,col="blue",lwd=2)
 means = apply(comp,2,mean)
 points(means,pch=20)
 
@@ -330,8 +330,14 @@ PIP_SS = function(data,type){
   return(pip_split_sample)
 }
 
+colnames(comp)
 
+boxplot(comp - comp[,"emp_cond"])
+abline(h=0)
+means = apply(comp- comp[,"emp_cond"],2,mean)
+points(means,pch=20)
 
+bias_sq = apply((comp- comp[,"emp_cond"])^2,2,mean)
+vars = apply(comp- comp[,"emp_cond"],2,var)
 
-
-
+bias_sq+vars

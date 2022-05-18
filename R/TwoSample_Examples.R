@@ -6,7 +6,7 @@ require(doSNOW)
 require(ggplot2)
 
 for (beta11 in c(0,-1,-4)){
-  for(sampsize in c(100,400)){
+  for(sampsize in c(20,40,60,100,400)){
     cl <- makeCluster(7)
     registerDoSNOW(cl)
     iterations <- 10000
@@ -21,6 +21,8 @@ for (beta11 in c(0,-1,-4)){
                         emp_cond<-result$Emp_Cond
                         emp_exp<-result$Emp_Exp
                         pip_SS = result$PIP_SS
+                        pip_SS_rep50 = result$PIP_SS_rep50
+                        pip_SS_rep100 = result$PIP_SS_rep100
                         pip_LOO = result$PIP_LOO
                         pval_mod1 = result$pval_mod1
                         pip_full = result$pip_full
@@ -34,7 +36,7 @@ for (beta11 in c(0,-1,-4)){
     close(pb)
     stopCluster(cl)
 
-    save(output,file=paste0(paste(paste0("R/Output_Sims/sim_effect",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    save(output,file=paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
   }
 
 }

@@ -4,6 +4,7 @@
 require(mvnfast)
 require(Matrix)
 require(MASS)
+require(caret)
 
 # Helper functions
 
@@ -25,7 +26,9 @@ TRUE_PIPs_faster = function(beta01,beta11,sigma,prop1,sampsize){
   N = sampsize
   PIP_theoretical_true = pnorm(abs(beta11)*prop1/(2*sigma))* (1-prop1) + pnorm(abs(beta11)*(1-prop1)/(2*sigma))* (prop1)
 
-  Sigma <- sigma^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N+(prop1*(1-prop1))/(sigma^2)/N),2,2)
+  #Sigma <- sigma^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N+(prop1*(1-prop1))/(sigma^2)/N),2,2)
+  Sigma <- sigma^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N),2,2)
+
   E1 <- matrix(nrow=10000000/2, ncol = 2)
   class(E1) <- "numeric" # This is important. We need the elements of A to be of class "numeric".
   rmvn(10000000/2, c(0,-0.5*beta11), Sigma, A=E1)
@@ -36,7 +39,9 @@ TRUE_PIPs_faster = function(beta01,beta11,sigma,prop1,sampsize){
   PIP_expected_true =  (sum(E1[,1]^2< E1[,2]^2) + sum(E2[,1]^2< E2[,2]^2))/10000000
 
   N = 100000000
-  Sigma <- sigma^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N+(prop1*(1-prop1))/(sigma^2)/N),2,2)
+  #Sigma <- sigma^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N+(prop1*(1-prop1))/(sigma^2)/N),2,2)
+  Sigma <- sigma^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N),2,2)
+
   E1 <- matrix(nrow=10000000/2, ncol = 2)
   class(E1) <- "numeric" # This is important. We need the elements of A to be of class "numeric".
   rmvn(10000000/2, c(0,-0.5*beta11), Sigma, A=E1)
@@ -86,12 +91,12 @@ Emp_PIP = function(dataset,total_n,prop1,beta01,beta11,sigma){
   var_b11 = var_covar1[2,2]
   covar_mod1 = var_covar1[1,2]
 
-  sigma_pars = matrix(c(var_covar0,sigma(mod1)^2/N,0,sigma(mod1)^2/N,var_b01,covar_mod1,0,covar_mod1,var_b11),nrow=3,ncol=3)
+  sigma_pars = matrix(c(sigma^2/sampsize,sigma^2/sampsize,0,sigma^2/sampsize,2*sigma^2/sampsize,-2*sigma^2/sampsize,0,-2*sigma^2/sampsize,4*sigma^2/sampsize),nrow=3,ncol=3)
 
-  p=tryCatch({samples = mvrnorm(n = total_n, c(coef_mod0[1],coef_mod1[1],coef_mod1[2]), sigma_pars, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)}, error=function(e){})
+  p=tryCatch({samples = mvrnorm(n = total_n, c(beta00,beta01,beta11), sigma_pars, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)}, error=function(e){})
   if(is.null(p)){
     sigma_pars = nearPD(sigma_pars)$mat
-    samples = mvrnorm(n = total_n, c(coef_mod0[1],coef_mod1[1],coef_mod1[2]), sigma_pars, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)
+    samples = mvrnorm(n = total_n, c(beta00,beta01,beta11), sigma_pars, tol = 1e-6, empirical = FALSE, EISPACK = FALSE)
   }
   else{samples = p}
   dat_star$pred0 =  samples[,1]
@@ -172,7 +177,8 @@ estimated_expected_PIP = function(dataset,sim_size){
   beta00_est = summary(mod0)$coefficients[1,1]
 
 
-  Sigma_est <- sigma_est^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N+(beta11_est^2*prop1*(1-prop1))/(sigma_est^2)/N),2,2)
+  #Sigma_est <- sigma_est^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N+(beta11_est^2*prop1*(1-prop1))/(sigma_est^2)/N),2,2)
+  Sigma_est <- sigma_est^2*matrix(c(1+2/N,1+1/N,1+1/N,1+1/N),2,2)
 
   E1 <- matrix(nrow=sim_size/2, ncol = 2)
   class(E1) <- "numeric"
@@ -193,13 +199,13 @@ estimated_expected_PIP = function(dataset,sim_size){
 
 
 PIP_K_cv = function(data,K,type,alpha=0.05){
-  set.seed(123)
+  set.seed(1988)
   # Check if K is smaller than sample size
   if(K>nrow(data)){print("error: K should be less than or equal to n")}
 
   # Create K equally sized folds after randomly shuffling the data
-  yourData<-data[sample(nrow(data)),]
-  folds <- cut(seq(1,nrow(yourData)),breaks=K,labels=FALSE)
+  yourData<-data
+  cvIndex <- createFolds(factor(data$x), K, returnTrain = T)
 
   #Perform K fold cross validation
 
@@ -207,26 +213,9 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
   mse0_CV_sub=c()
   mse1_CV_sub=c()
 
-  for(i in 1:K){
-
-    #Segment your data by fold using the which() function
-
-    testIndexes <- which(folds==i,arr.ind=TRUE)
-    testData <- yourData[testIndexes, ]
-    trainData <- yourData[-testIndexes, ]
-
-    #Use the test and train data partitions based on model type
-
-    # if(type=="nonlinear"){
-    #   mod1 = nls(y~p1+p2*x**p3, data=trainData,
-    #              start = list(p1=3,
-    #                           p2= 3,
-    #                           p3= 1))
-    #   mod0 = nls(y~p1+p2*x, data=trainData,
-    #              start = list(p1=2,
-    #                           p2= 1))
-    # }
-
+  for(j in names(cvIndex)){
+    trainData = yourData[cvIndex[[j]],]
+    testData = yourData[-cvIndex[[j]],]
 
     if(type=="gaussian"){
       mod1 = glm(y ~ x, family="gaussian", data=trainData)
@@ -237,11 +226,6 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
       mod1 = glm(y ~ x, poisson(link = "log"), data=trainData, maxit = 5000)
       mod0 = glm(y ~ 1, poisson(link = "log"), data=trainData, maxit = 5000)
     }
-
-    # if(type=="gamma"){
-    #   mod1 = glm(y ~ x, Gamma(link = "log"), data=trainData, maxit = 5000,start=c(beta0+0.05,beta1-0.5))
-    #   mod0 = glm(y ~ 1, Gamma(link = "log"), data=trainData, maxit = 5000)
-    # }
 
     if(type=="binomial"){
       mod1 = glm(y ~ x, family="binomial", data=trainData, maxit = 5000)
@@ -260,19 +244,7 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
 
   PIP_cv = mean(pip_cv)
 
-  # PIP_cv_lower = PIP_cv - qnorm(1-alpha/2)*sqrt(PIP_cv*(1-PIP_cv)/K)
-  # PIP_cv_upper = PIP_cv + qnorm(1-alpha/2)*sqrt(PIP_cv*(1-PIP_cv)/K)
-
-  # PIP_cv_mean = mean(pip_cv)
-  # PIP_cv_var = var(pip_cv)
-
-  # PIP_cv_lower2 = expit(logit( PIP_cv_mean) - qnorm(1-alpha/2)*sqrt(PIP_cv_var/(PIP_cv_mean*(PIP_cv_mean))))
-  # PIP_cv_upper2 = expit(logit( PIP_cv_mean) + qnorm(1-alpha/2)*sqrt(PIP_cv_var/(PIP_cv_mean*(PIP_cv_mean))))
-
-  # PIP_cv_lower2 = expit(logit( PIP_cv_mean) - qt(1-alpha/2,K-1)*sqrt(PIP_cv_var/(PIP_cv_mean*(PIP_cv_mean))))
-  # PIP_cv_upper2 = expit(logit( PIP_cv_mean) + qt(1-alpha/2,K-1)*sqrt(PIP_cv_var/(PIP_cv_mean*(PIP_cv_mean))))
-
-  mse0_CV = mean(mse0_CV_sub)
+    mse0_CV = mean(mse0_CV_sub)
   mse1_CV = mean(mse1_CV_sub)
 
   return(list("PIP_cv"=PIP_cv,"mse0"=mse0_CV,"mse1"=mse1_CV))
@@ -282,21 +254,29 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
 ## Split sample
 
 PIP_SS = function(data){
-  N=nrow(data)
-  smp_size <- floor(0.5*N)
-  train_ind <- sample(seq_len(N), size = smp_size)
-  training_sub <-data[train_ind, ]
-  testing <- data[-train_ind, ]
+  set.seed(1988)
+  trainIndex <- createDataPartition(data$X, p = .5,
+                                    list = FALSE,
+                                    times = 100)
 
-  mod1 = lm(Y ~ X, data = training_sub)
-  mod0 = lm(Y ~ 1, data = training_sub)
+  PIP = c()
 
-  pred0 = predict(mod0,testing)
-  pred1 = predict(mod1,testing)
+  for(j in 1:ncol(trainIndex)){
+    training = data[ trainIndex[,j],]
+    testing  = data[-trainIndex[,j],]
 
-  pip_split_sample = mean((pred1-testing$Y)^2 < (pred0-testing$Y)^2) +0.5*mean((pred1-testing$Y)^2 == (pred0-testing$Y)^2)
+    sub=training
+    mod1 = lm(Y ~ X, data = sub)
+    mod0 = lm(Y ~ 1, data = sub)
 
-  return(pip_split_sample)
+    PIP = c(PIP,mean((testing$Y-predict(mod1,testing))^2<(testing$Y-predict(mod0,testing))^2) +0.5* mean((testing$Y-predict(mod1,testing))^2==(testing$Y-predict(mod0,testing))^2))
+  }
+
+  pip_split_sample_rep100 = mean(PIP)
+  pip_split_sample_rep50 = mean(PIP[1:50])
+  pip_split_sample = PIP[1]
+
+  return(list("pip_SS_rep100" = pip_split_sample_rep100,"pip_SS_rep50" = pip_split_sample_rep50,"pip_SS" = pip_split_sample))
 }
 
 
@@ -359,7 +339,9 @@ do_SIM = function(i,beta01,beta11,sigma,prop1,sampsize){
               "PIP_exp" = PIP_expected_estimate,
               "Emp_Cond"  = pip_emp,
               "Emp_Exp"  = pip_exp_emp,
-              "PIP_SS" = pip_split_sample,
+              "PIP_SS" = pip_split_sample$pip_SS,
+              "PIP_SS_rep50" = pip_split_sample$pip_SS_rep50,
+              "PIP_SS_rep100" = pip_split_sample$pip_SS_rep100,
               "PIP_LOO" = PIP_cv,
               "pval_mod1" = pval,
               "pip_full" =    pip_full,
