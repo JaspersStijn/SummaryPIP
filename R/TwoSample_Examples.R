@@ -13,7 +13,7 @@ for (beta11 in c(0,-1,-4)){
     pb <- txtProgressBar(max = iterations, style = 3)
     progress <- function(n) setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
-    output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast"),
+    output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","caret"),
                       .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
                         result <- do_SIM(i,10,beta11,2,0.5,sampsize)
                         pip_cond = result$PIP_cond
@@ -31,7 +31,7 @@ for (beta11 in c(0,-1,-4)){
                         mse0_CV = result$MSE0_CV
                         mse1_CV = result$MSE1_CV
                         return(cbind(pip_cond,pip_exp,emp_cond,emp_exp,
-                                     pip_SS,pip_LOO,pval_mod1,pip_full,pip_cond_check,pip_CV5,mse0_CV,mse1_CV))
+                                     pip_SS,pip_SS_rep50,pip_SS_rep100,pip_LOO,pval_mod1,pip_full,pip_cond_check,pip_CV5,mse0_CV,mse1_CV))
                       }
     close(pb)
     stopCluster(cl)
@@ -54,20 +54,23 @@ for(beta11 in c(0,-1,-4)){
   layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
   par(mai=rep(0.5, 4))
   for( sampsize in c(20,40,60,100,400)){
-    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
     colnames(output)[1] = "pip_C1"
-    colnames(output)[8] = "pip_C2"
+    colnames(output)[10] = "pip_C2"
     means <- apply(output,2,mean)
     true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
     #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_C1","pip_C2","emp_cond","pip_exp","emp_exp" ,"pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
-    boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    #boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_CV5","pip_SS","pip_SS_rep50","pip_SS_rep100")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     abline(h=true_vals$PIP_theor,col="red",lwd=2)
     abline(h=true_vals$PIP_exp ,col='blue',lwd=2)
     abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
-    points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
+    #points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
+    points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_CV5","pip_SS","pip_SS_rep50","pip_SS_rep100")],pch=20)
+
     print(means)
     PIP = c(PIP,output[,c("pip_CV5")])
     pval = c(pval,output[,c("pval_mod1")])
@@ -82,7 +85,6 @@ for(beta11 in c(0,-1,-4)){
          col=c("red","blue","darkgreen"),lty=c(1,1,2),lwd=2)
 
 }
-
 
 
 par(mfrow=c(1,1))
@@ -167,7 +169,8 @@ for(beta11 in c(0,-1,-4)){
     pval = output[,"pval_mod1"]
     pip_CV5 =  output[,"pip_CV5"]
     pip_LOO =  output[,"pip_LOO"]
-    plot(pip_CV5,pip_LOO)
+    plot(pval,pip_CV5)
+    title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
   }}
 
     mse_diff = output[,"mse1_CV"]-output[,"mse0_CV"]

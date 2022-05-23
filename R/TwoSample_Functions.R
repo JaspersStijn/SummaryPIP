@@ -56,7 +56,7 @@ TRUE_PIPs_faster = function(beta01,beta11,sigma,prop1,sampsize){
 
 ## Empirical PIP
 
-Emp_PIP = function(dataset,total_n,prop1,beta01,beta11,sigma){
+Emp_PIP = function(dataset,total_n,prop1,beta00,beta01,beta11,sigma){
 
   xstar = c(rep(0,(1-prop1)*total_n),rep(1,prop1*total_n))
   ustar <- rnorm(total_n, sd = sigma)
@@ -312,7 +312,7 @@ do_SIM = function(i,beta01,beta11,sigma,prop1,sampsize){
 
   # Empirical versions
 
-  emp_out = Emp_PIP(training,1000000,prop1,beta01,beta11,sigma)
+  emp_out = Emp_PIP(training,1000000,prop1,beta00,beta01,beta11,sigma)
 
   pip_emp = emp_out$Cond_Emp
   pip_exp_emp = emp_out$Exp_Emp
