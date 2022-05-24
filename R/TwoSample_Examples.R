@@ -243,3 +243,67 @@ abline(a=coef(mod1)[1],b=coef(mod1)[2],lwd=2,lty=2,col="red")
 output[8,c('pip_full','pip_CV5','pip_SS','pip_LOO')]
 
 legend('bottom',c("m0","m1"),lty=c(1,2),col=c('black','red'),lwd=c(2,2))
+
+
+
+
+
+
+# Presentation ISNPS2022
+
+for(beta11 in c(0,-1,-4)){
+  layout(matrix(c(1,2,3,3), ncol=2, byrow=TRUE), heights=c(4,1))
+  par(mai=rep(0.5, 4))
+  for( sampsize in c(40,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "pip_C1"
+    colnames(output)[10] = "pip_C2"
+    means <- apply(output,2,mean)
+    true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
+    boxplot(output[,c("pip_C1","pip_C2","pip_exp")])
+    abline(h=true_vals$PIP_theor,col="red",lwd=2)
+    abline(h=true_vals$PIP_exp ,col='blue',lwd=2)
+    abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
+    points(means[c("pip_C1","pip_C2","pip_exp")],pch=20)
+  }
+  plot.new()
+  par(mai=c(0,0,0,0))
+  legend(x="center", ncol=3,legend=c('Theoretical PIP',paste0('Expected PIP for specified sampsize'),'Expected PIP for n=100000000' ),
+         col=c("red","blue","darkgreen"),lty=c(1,1,2),lwd=2)
+
+}
+
+
+
+
+
+
+
+
+# Compare with empirical conditional/expected PIP
+for(beta11 in c(0,-1,-4)){
+  layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
+  par(mai=rep(0.5, 4))
+  for( sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "pip_C1"
+    colnames(output)[10] = "pip_C2"
+    true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
+    means <- apply(output,2,mean)
+    print(means)
+    }
+  plot.new()
+  par(mai=c(0,0,0,0))
+  plot.new()
+  legend(x="center", ncol=3,legend=c('Theoretical PIP',paste0('Expected PIP for specified sampsize'),'Expected PIP for n=100000000' ),
+         col=c("red","blue","darkgreen"),lty=c(1,1,2),lwd=2)
+
+}
+
+
+
+
+
+
