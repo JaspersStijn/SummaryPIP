@@ -297,10 +297,10 @@ PIP_SS = function(data,type){
   names(dat) = c("X","Y")
   trainIndex <- createDataPartition(dat$X, p = .5,
                                     list = FALSE,
-                                    times = 10000)
+                                    times = 1)
 
   PIP = c()
-
+  
   if(type=="gaussian"){
     for(j in 1:ncol(trainIndex)){
       training = dat[ trainIndex[,j],]
@@ -341,3 +341,62 @@ bias_sq = apply((comp- comp[,"emp_cond"])^2,2,mean)
 vars = apply(comp- comp[,"emp_cond"],2,var)
 
 bias_sq+vars
+
+
+
+
+
+
+
+beta11 = -4
+PIP = c()
+PIM = c()
+for(i in 1:1000){
+  set.seed(i)
+  
+  # True value for m0 intercept
+  
+  beta00 = beta01 + beta11*prop1
+  
+  # Sample dataset with specified sample size
+  N = sampsize
+  X = c(rep(0,(1-prop1)*sampsize),rep(1,prop1*sampsize))
+  U <- rnorm(sampsize, sd = sigma)
+  Y = beta01 + beta11*X + U
+  
+  dat=data.frame(X, Y)
+  
+  trainIndex <- createDataPartition(dat$X, p = .5,
+                                    list = FALSE,
+                                    times = 1)
+  
+  training = dat[ trainIndex[,1],]
+  testing  = dat[-trainIndex[,1],]
+  
+  sub=training
+  mod1 = lm(Y ~ X, data = sub)
+  mod0 = lm(Y ~ 1, data = sub)
+      
+  PIP = c(PIP,mean((testing$Y-predict(mod1,testing))^2<(testing$Y-predict(mod0,testing))^2))
+      
+  pred0 = predict(mod0,testing)
+  pred1 = predict(mod1,testing)
+
+  preds = data.frame("pred" = c((pred0-testing$Y)^2,(pred1-testing$Y)^2),"mod" = c(rep(0,length(pred0)),rep(1,length(pred1))) ,"x" = c(testing$X,testing$X))
+
+  library(pim)
+  id.mod0<- which(preds$mod == 0)
+  id.mod1<- which(preds$mod == 1)
+  compare <- expand.grid(id.mod1, id.mod0)
+
+  pim4 <- pim(formula = pred ~ +1 + x, data = preds, compare = compare,link = "identity")
+  PIM = c(PIM,coef(pim4)[1])
+if(i%%100==0){print(paste0("Iteration: ",i))}
+}
+
+mean(PIM)
+mean(PIP)
+true_vals = TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
+true_vals$PIP_theor
+
+

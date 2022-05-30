@@ -251,6 +251,65 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
 }
 
 
+
+
+PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
+  set.seed(seed)
+  # Check if K is smaller than sample size
+  if(K>nrow(data)){print("error: K should be less than or equal to n")}
+  
+  # Create K equally sized folds after randomly shuffling the data
+  PIP_cv = c()
+  mse0_CV = c()
+  mse1_CV = c()
+  for(l in 1:reps){
+    yourData<-data[sample(nrow(data)),]
+    cvIndex <- createFolds(factor(yourData$x), K, returnTrain = T)
+
+  #Perform K fold cross validation
+  
+  pip_cv = c()
+  mse0_CV_sub=c()
+  mse1_CV_sub=c()
+  
+  for(j in names(cvIndex)){
+    trainData = yourData[cvIndex[[j]],]
+    testData = yourData[-cvIndex[[j]],]
+    
+    if(type=="gaussian"){
+      mod1 = glm(y ~ x, family="gaussian", data=trainData)
+      mod0 = glm(y ~ 1, family="gaussian", data=trainData)
+    }
+    
+    if(type=="poisson"){
+      mod1 = glm(y ~ x, poisson(link = "log"), data=trainData, maxit = 5000)
+      mod0 = glm(y ~ 1, poisson(link = "log"), data=trainData, maxit = 5000)
+    }
+    
+    if(type=="binomial"){
+      mod1 = glm(y ~ x, family="binomial", data=trainData, maxit = 5000)
+      mod0 = glm(y ~ 1, family="binomial", data=trainData, maxit = 5000)
+    }
+    
+    pred0 = predict(mod0,testData,type="response")
+    pred1 = predict(mod1,testData,type="response")
+    
+    if(type=="poisson") {pip_cv = c(pip_cv,mean((pred1-testData$y*log(pred1)) < (pred0-testData$y*log(pred0)))+0.5*mean((pred1-testData$y*log(pred1)) == (pred0-testData$y*log(pred0))))}
+    else{    pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2) )}
+    
+    mse0_CV_sub = c(mse0_CV_sub,mean((pred0-testData$y)^2))
+    mse1_CV_sub = c(mse1_CV_sub,mean((pred1-testData$y)^2))
+  }
+  
+  PIP_cv = c(PIP_cv,mean(pip_cv))
+  
+  mse0_CV = mean(mse0_CV_sub)
+  mse1_CV = mean(mse1_CV_sub)
+  }
+    return(list("PIP_cv"=mean(PIP_cv),PIP_cv_lower=quantile(PIP_cv,0.05),PIP_cv_upper = quantile(PIP_cv,0.95),"mse0"=mean(mse0_CV),"mse1"=mean(mse1_CV)))
+}
+
+
 ## Split sample
 
 PIP_SS = function(data){
@@ -335,6 +394,17 @@ do_SIM = function(i,beta01,beta11,sigma,prop1,sampsize){
   MSE0_CV = out_CV_5$mse0
   MSE1_CV = out_CV_5$mse1
 
+  
+  # Repeated 5-fold CV
+  
+  out_rep_CV_5 = PIP_K_rep_cv(CV_input,5,type="gaussian",alpha=0.05,reps=100)
+  
+  PIP_rep_cv_5 = out_rep_CV_5$PIP_cv
+  MSE0_rep_CV = out_rep_CV_5$mse0
+  MSE1_rep_CV = out_rep_CV_5$mse1
+  
+  
+  
   return(list("PIP_cond" = PIP_theoretical_plugin,
               "PIP_exp" = PIP_expected_estimate,
               "Emp_Cond"  = pip_emp,
@@ -348,8 +418,23 @@ do_SIM = function(i,beta01,beta11,sigma,prop1,sampsize){
               "pip_cond_check" = pip_cond_check,
               "PIP_CV5" = PIP_cv_5,
               "MSE0_CV" = MSE0_CV,
-              "MSE1_CV" = MSE1_CV
+              "MSE1_CV" = MSE1_CV,
+              "PIP_rep_CV5" = PIP_rep_cv_5,
+              "MSE0_rep_CV" = MSE0_rep_CV,
+              "MSE1_rep_CV" = MSE1_rep_CV
+              
   ))
 }
+
+
+# Relation between pvalue and PIP_C1
+
+f_pip = function(n,p){
+  return(
+    pnorm(1/(2*sqrt(n))*qt(1-0.5*p,df=n-2))
+  )
+}
+
+
 
 

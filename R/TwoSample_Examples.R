@@ -9,7 +9,7 @@ for (beta11 in c(0,-1,-4)){
   for(sampsize in c(20,40,60,100,400)){
     cl <- makeCluster(7)
     registerDoSNOW(cl)
-    iterations <- 10000
+    iterations <- 100
     pb <- txtProgressBar(max = iterations, style = 3)
     progress <- function(n) setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
@@ -30,8 +30,12 @@ for (beta11 in c(0,-1,-4)){
                         pip_CV5=result$PIP_CV5
                         mse0_CV = result$MSE0_CV
                         mse1_CV = result$MSE1_CV
+                        pip_rep_CV5=result$PIP_rep_CV5
+                        mse0_rep_CV = result$MSE0_rep_CV
+                        mse1_rep_CV = result$MSE1_rep_CV
                         return(cbind(pip_cond,pip_exp,emp_cond,emp_exp,
-                                     pip_SS,pip_SS_rep50,pip_SS_rep100,pip_LOO,pval_mod1,pip_full,pip_cond_check,pip_CV5,mse0_CV,mse1_CV))
+                                     pip_SS,pip_SS_rep50,pip_SS_rep100,pip_LOO,pval_mod1,pip_full,pip_cond_check,
+                                     pip_CV5,mse0_CV,mse1_CV,pip_rep_CV5,mse0_rep_CV,mse1_rep_CV))
                       }
     close(pb)
     stopCluster(cl)
@@ -41,7 +45,7 @@ for (beta11 in c(0,-1,-4)){
 
 }
 
-
+boxplot(output[,c("pip_CV5","pip_rep_CV5")])
 
 
 PIP = c()
@@ -56,23 +60,30 @@ for(beta11 in c(0,-1,-4)){
   for( sampsize in c(20,40,60,100,400)){
     use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
-    colnames(output)[1] = "pip_C1"
-    colnames(output)[10] = "pip_C2"
+    colnames(output)[1] = "C1"
+    colnames(output)[2] ="Exp"
+    colnames(output)[10] = "C2"
+    colnames(output)[5] ="SS"
+    colnames(output)[7] ="SS_rep100"
+    colnames(output)[8] ="LOO"
+    colnames(output)[12] ="CV5"
+    colnames(output)[15] ="rep_CV5"
+  
     means <- apply(output,2,mean)
     true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
     #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_C1","pip_C2","emp_cond","pip_exp","emp_exp" ,"pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
-    boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_CV5","pip_SS","pip_SS_rep50","pip_SS_rep100")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
-    abline(h=true_vals$PIP_theor,col="red",lwd=2)
-    abline(h=true_vals$PIP_exp ,col='blue',lwd=2)
-    abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
+    boxplot(output[,c("C1","C2","Exp","LOO","CV5","rep_CV5","SS","SS_rep100")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    abline(h=true_vals$PIP_theor,col="black",lty=2)
+    abline(h=true_vals$PIP_exp ,col='black',lty=3)
+    #abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
     #points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
-    points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_CV5","pip_SS","pip_SS_rep50","pip_SS_rep100")],pch=20)
+    points(means[c("C1","C2","Exp","LOO","CV5","rep_CV5","SS","SS_rep100")],pch=20)
 
     print(means)
-    PIP = c(PIP,output[,c("pip_CV5")])
+    PIP = c(PIP,output[,c("rep_CV5")])
     pval = c(pval,output[,c("pval_mod1")])
     MSE_diff = c(MSE_diff,output[,c("mse1_CV")]-output[,c("mse0_CV")])
     EffectSize = c(EffectSize,rep(paste0('Effect Size: ',beta11),nrow(output)))
@@ -81,8 +92,8 @@ for(beta11 in c(0,-1,-4)){
   plot.new()
   par(mai=c(0,0,0,0))
   plot.new()
-  legend(x="center", ncol=3,legend=c('Theoretical PIP',paste0('Expected PIP for specified sampsize'),'Expected PIP for n=100000000' ),
-         col=c("red","blue","darkgreen"),lty=c(1,1,2),lwd=2)
+  legend(x="center", ncol=2,legend=c('Theoretical PIP',paste0('Expected PIP')),
+         col=c("black"),lty=c(2,3),lwd=2)
 
 }
 
@@ -111,51 +122,45 @@ Gaussian_out$SampleSize=Samplesize
 #Gaussian_out$SampleSize= factor(Gaussian_out$SampleSize, levels=c('Sample Size: 20','Sample Size: 40','Sample Size: 60'))
 Gaussian_out$SampleSize= factor(Gaussian_out$SampleSize, levels=c('Sample Size: 20','Sample Size: 40','Sample Size: 60','Sample Size: 100','Sample Size: 400'))
 
-head(Gaussian_out)
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = pval, color = MSE)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = PIP, x = pval, color = MSE)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"), aes(y = PIP, x = pval, color = MSE)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = MSE_diff, color = pval_Ind)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = PIP, x = MSE_diff, color = pval_Ind)) +  geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"), aes(y = PIP, x = MSE_diff, color = pval_Ind)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-
-
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = pval, x =MSE_diff, color = PIP_Ind)) + #geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -2"), aes(y = pval, x = MSE_diff, color = PIP_Ind)) + #geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"), aes(y = pval, x = MSE_diff, color = PIP_Ind)) + #geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-
-
-
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = pval)) + #geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = PIP, x = pval, color = pval_Ind)) + #geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
-  facet_wrap(~ EffectSize + SampleSize, scales = "free")
-
-
-
+# head(Gaussian_out)
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = pval, color = MSE)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = PIP, x = pval, color = MSE)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"), aes(y = PIP, x = pval, color = MSE)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = MSE_diff, color = pval_Ind)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0,linetype="dashed")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = PIP, x = MSE_diff, color = pval_Ind)) +  geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0,linetype="dashed")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"), aes(y = PIP, x = MSE_diff, color = pval_Ind)) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0,linetype="dashed")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# 
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = pval)) + #geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+#   stat_function(fun = f_pip, args = list(n = 100,p=pval), colour = "red")+
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
+# 
+# 
+# 
+# 
+# ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = pval))+
+#  stat_function(fun = function(x) do.call(f_pip, c(n=400, list(x))), color = "blue") +
+#   facet_wrap(~ EffectSize + SampleSize, scales = "free")
+# 
 
 
 f_pip = function(n,p){
   return(
-    pnorm(1/(2*sqrt(n))*qt(1-0.5*p,df=n-1))
+    pnorm(1/(2*sqrt(n))*qt(1-0.5*p,df=n-2))
   )
 }
 
@@ -281,11 +286,41 @@ for(beta11 in c(0,-1,-4)){
 
 
 
-# Compare with empirical conditional/expected PIP
+# Compare with empirical conditional PIP
+
 for(beta11 in c(0,-1,-4)){
   layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
   par(mai=rep(0.5, 4))
   for( sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "C1"
+    colnames(output)[2] ="Exp"
+    colnames(output)[10] = "C2"
+    colnames(output)[5] ="SS"
+    colnames(output)[7] ="SS_rep100"
+    colnames(output)[8] ="LOO"
+    colnames(output)[12] ="CV5"
+    colnames(output)[15] ="rep_CV5"
+    
+    colnames(output)
+    use_diff  = output[,c("C1","C2","LOO","CV5","rep_CV5","SS","SS_rep100")] - output[,"emp_cond"]
+    means = apply(use_diff,2,mean)
+    boxplot(use_diff,main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    abline(h=0,lwd=2,lty=2)
+    points(means,pch=20)
+  }
+  plot.new()
+}
+
+
+
+
+
+# Check consistency
+par(mfrow=c(2,2))
+for(beta11 in c(0,-1,-4)){
+  for( sampsize in c(400,100,60,40,20)){
     use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
     colnames(output)[1] = "pip_C1"
@@ -293,14 +328,63 @@ for(beta11 in c(0,-1,-4)){
     true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
     means <- apply(output,2,mean)
     print(means)
-    }
-  plot.new()
-  par(mai=c(0,0,0,0))
-  plot.new()
-  legend(x="center", ncol=3,legend=c('Theoretical PIP',paste0('Expected PIP for specified sampsize'),'Expected PIP for n=100000000' ),
-         col=c("red","blue","darkgreen"),lty=c(1,1,2),lwd=2)
-
+    if(sampsize==400){plot(density(output[,"pip_C1"]))}
+    else{lines(density(output[,"pip_C1"]))}
+  }
+  abline(v=true_vals$PIP_theor,lwd=2,lty=2)
 }
+
+
+
+
+
+
+relation = c()
+EffectSize = c()
+Samplesize = c()
+x = c()
+for(beta11 in c(0,-1,-4)){
+  par(mfrow=c(2,3))
+  for(sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "pip_C1"
+    colnames(output)[10] = "pip_C2"
+
+    f_pip = function(n,p){
+      return(
+        pnorm(1/(2*sqrt(n))*qt(1-0.5*p,df=n-2))
+      )
+    }
+    
+    pvals = output[,"pval_mod1"]
+    relation = c(relation,sapply(seq(0,max(max(pvals),0.05),length=1000),f_pip,n=sampsize))
+    x = c(x,seq(0,max(max(pvals),0.05),length=1000))
+    EffectSize = c(EffectSize,rep(paste0('Effect Size: ',beta11),1000))
+    Samplesize = c(Samplesize,rep(paste0('Sample Size: ',sampsize),1000))
+  }}
+
+df_relation = data.frame(cbind("EffectSize"=EffectSize,"SampleSize"=Samplesize,"Relation"=relation,"x"=x))
+df_relation$Relation = as.numeric(df_relation$Relation)
+df_relation$x = as.numeric(df_relation$x)
+
+df_relation$SampleSize= factor(df_relation$SampleSize, levels=c('Sample Size: 20','Sample Size: 40','Sample Size: 60','Sample Size: 100','Sample Size: 400'))
+Gaussian_out$SampleSize= factor(Gaussian_out$SampleSize, levels=c('Sample Size: 20','Sample Size: 40','Sample Size: 60','Sample Size: 100','Sample Size: 400'))
+
+
+
+
+ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: 0"), aes(y = PIP, x = pval, color = MSE),alpha = 0.5) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+  geom_line(aes(y = Relation,x=x), data = subset( df_relation,EffectSize=="Effect Size: 0"), colour = "black",linetype=1) +
+  facet_wrap(~ EffectSize + SampleSize, scales = "free")+ scale_colour_grey()
+
+ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -1"), aes(y = PIP, x = pval, color = MSE),alpha = 0.5) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+  geom_line(aes(y = Relation,x=x), data = subset( df_relation,EffectSize=="Effect Size: -1"), colour = "black",linetype=1) +
+  facet_wrap(~ EffectSize + SampleSize, scales = "free")+ scale_colour_grey()
+
+ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"), aes(y = PIP, x = pval, color = MSE),alpha = 0.5) + geom_hline(yintercept = 0.5,linetype="dashed")+ geom_vline(xintercept = 0.05,linetype="dashed")+
+  geom_line(aes(y = Relation,x=x), data = subset( df_relation,EffectSize=="Effect Size: -4"), colour = "black",linetype=1) +
+  facet_wrap(~ EffectSize + SampleSize, scales = "free")+ scale_colour_grey()
 
 
 
