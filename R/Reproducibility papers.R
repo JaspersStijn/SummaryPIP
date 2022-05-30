@@ -34,8 +34,7 @@ pip_sub_lower = c()
 pip_sub_upper = c()
 
 for(i in 1:10000){
-  set.seed(i)
-  fit = PIP_K_rep_cv(dat1,5,"gaussian",100,seed=1988)
+  fit = PIP_K_rep_cv(dat1,5,"gaussian",0.05,100,seed=i)
   pip_sub = c(pip_sub,fit$PIP_cv)
   pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
   pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
@@ -73,8 +72,7 @@ pip_sub_lower = c()
 pip_sub_upper = c()
 
 for(i in 1:10000){
-  set.seed(i)
-  fit = PIP_K_cv(dat1,5,"gaussian")
+  fit = PIP_K_rep_cv(dat1,5,"gaussian",0.05,100,seed=i)
   pip_sub = c(pip_sub,fit$PIP_cv)
   pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
   pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
@@ -111,7 +109,7 @@ pip_sub_upper = c()
 
 for(i in 1:10000){
   set.seed(i)
-  fit = PIP_K_cv(dat1,5,"gaussian")
+  fit = PIP_K_rep_cv(dat1,5,"gaussian",0.05,100,seed=i)
   pip_sub = c(pip_sub,fit$PIP_cv)
   pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
   pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
@@ -153,8 +151,7 @@ pip_sub_lower = c()
 pip_sub_upper = c()
 
 for(i in 1:10000){
-  set.seed(i)
-  fit = PIP_K_cv(dat1,5,"binomial")
+  fit = PIP_K_rep_cv(dat1,5,"binomial",0.05,100,seed=i)
   pip_sub = c(pip_sub,fit$PIP_cv)
   pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
   pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
@@ -169,8 +166,7 @@ summary_pips[,c("pval","PIP_lower","PIP","PIP_upper")] = round(summary_pips[,c("
 
 summary_pips[order(summary_pips[,c("PIP")] ),c("Study","pval","Replicated","PredictionMarket","Survey","PIP_lower","PIP","PIP_upper")]
 
-
-save.image("Reproducibility.Rdata")
+save.image("R/Reproducibility.Rdata")
 
 
 
