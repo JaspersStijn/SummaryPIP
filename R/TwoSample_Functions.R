@@ -306,7 +306,7 @@ PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
   mse0_CV = mean(mse0_CV_sub)
   mse1_CV = mean(mse1_CV_sub)
   }
-    return(list("PIP_cv"=mean(PIP_cv),PIP_cv_lower=quantile(PIP_cv,0.05),PIP_cv_upper = quantile(PIP_cv,0.95),"mse0"=mean(mse0_CV),"mse1"=mean(mse1_CV)))
+    return(list("PIP_cv"=mean(PIP_cv),PIP_cv_lower=quantile(PIP_cv,alpha),PIP_cv_upper = quantile(PIP_cv,1-alpha),"mse0"=mean(mse0_CV),"mse1"=mean(mse1_CV)))
 }
 
 

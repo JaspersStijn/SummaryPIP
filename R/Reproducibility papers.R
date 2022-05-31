@@ -1,7 +1,27 @@
 # Papers discussed in "Evaluating the replicability of social science
 # experiments in Nature and Science between
 # 2010 and 2015", Camerer et al. (2018)
+
 source("R/TwoSample_Functions.R")
+require(doSNOW)
+require(ggplot2)
+
+do_SIM = function(i,data=dat1,type="gaussian",alpha=0.05){
+ 
+  fit = PIP_K_rep_cv(data,5,type,alpha,100,seed=i)
+  pip_sub = fit$PIP_cv
+  pip_sub_lower = fit$PIP_cv_lower
+  pip_sub_upper = fit$PIP_cv_upper
+  
+  
+  return(list("pip_sub" = pip_sub,
+              "pip_sub_lower" = pip_sub_lower,
+              "pip_sub_upper"  = pip_sub_upper
+              
+  ))
+}
+
+
 
 
 summary_pips = data.frame()
@@ -29,20 +49,28 @@ summary(mod)$coef[2,4]
 # summary_pips = rbind(summary_pips,data.frame(Study = "Ackerman et al. (2010)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = pip_out$PIP_cv_lower,PIP = pip_out$PIP_cv,PIP_upper = pip_out$PIP_cv_upper,Replicated="No",PredictionMarket = 0.15, Survey = 0.13))
 
 
-pip_sub = c()
-pip_sub_lower = c()
-pip_sub_upper = c()
+cl <- makeCluster(7)
+registerDoSNOW(cl)
+iterations <- 10000
+pb <- txtProgressBar(max = iterations, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+output <- foreach(i=1:iterations,.packages=c("caret"),
+                  .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                    result <- do_SIM(i,dat1,"gaussian")
+                    pip_sub = result$pip_sub
+                    pip_sub_lower = result$pip_sub_lower
+                    pip_sub_upper  = result$pip_sub_upper
+                    return(cbind(pip_sub,pip_sub_lower,pip_sub_upper ))
+                  }
+close(pb)
+stopCluster(cl)
 
-for(i in 1:10000){
-  fit = PIP_K_rep_cv(dat1,5,"gaussian",0.05,100,seed=i)
-  pip_sub = c(pip_sub,fit$PIP_cv)
-  pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
-  pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
-  
-  print(i)
-}
+i=1988
+output = do_SIM(i,dat1,"gaussian",0.025)
 
-summary_pips = rbind(summary_pips,data.frame(Study = "Ackerman et al. (2010)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(pip_sub,0.025),PIP =mean(pip_sub),PIP_upper = quantile(pip_sub,0.975),Replicated="No",PredictionMarket = 0.15, Survey = 0.13))
+#summary_pips = rbind(summary_pips,data.frame(Study = "Ackerman et al. (2010)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(output[,"pip_sub"],0.025),PIP =mean(output[,"pip_sub"]),PIP_upper = quantile(output[,"pip_sub"],0.975),Replicated="No",PredictionMarket = 0.15, Survey = 0.13))
+summary_pips = rbind(summary_pips,data.frame(Study = "Ackerman et al. (2010)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = output$pip_sub_lower,PIP =output$pip_sub,PIP_upper = output$pip_sub_upper,Replicated="No",PredictionMarket = 0.15, Survey = 0.13))
 
 
 
@@ -67,20 +95,28 @@ summary(mod)
 # 
 # summary_pips = rbind(summary_pips,data.frame(Study = "Wilson et al. (2014)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = pip_out$PIP_cv_lower,PIP = pip_out$PIP_cv,PIP_upper = pip_out$PIP_cv_upper,Replicated="Yes",PredictionMarket = 0.46, Survey = 0.52))
 
-pip_sub = c()
-pip_sub_lower = c()
-pip_sub_upper = c()
+cl <- makeCluster(7)
+registerDoSNOW(cl)
+iterations <- 10000
+pb <- txtProgressBar(max = iterations, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+output <- foreach(i=1:iterations,.packages=c("caret"),
+                  .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                    result <- do_SIM(i,dat1,"gaussian")
+                    pip_sub = result$pip_sub
+                    pip_sub_lower = result$pip_sub_lower
+                    pip_sub_upper  = result$pip_sub_upper
+                    return(cbind(pip_sub,pip_sub_lower,pip_sub_upper ))
+                  }
+close(pb)
+stopCluster(cl)
 
-for(i in 1:10000){
-  fit = PIP_K_rep_cv(dat1,5,"gaussian",0.05,100,seed=i)
-  pip_sub = c(pip_sub,fit$PIP_cv)
-  pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
-  pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
-  
-  print(i)
-}
+i=1988
+output = do_SIM(i,dat1,"gaussian",0.025)
 
-summary_pips = rbind(summary_pips,data.frame(Study = "Wilson et al. (2014)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(pip_sub,0.025),PIP =mean(pip_sub),PIP_upper = quantile(pip_sub,0.975),Replicated="Yes",PredictionMarket = 0.46, Survey = 0.52))
+#summary_pips = rbind(summary_pips,data.frame(Study = "Wilson et al. (2014)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(output[,"pip_sub"],0.025),PIP =mean(output[,"pip_sub"]),PIP_upper = quantile(output[,"pip_sub"],0.975),Replicated="Yes",PredictionMarket = 0.46, Survey = 0.52))
+summary_pips = rbind(summary_pips,data.frame(Study = "Wilson et al. (2014)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = output$pip_sub_lower,PIP =output$pip_sub,PIP_upper = output$pip_sub_upper,Replicated="Yes",PredictionMarket = 0.46, Survey = 0.52))
 
 
 # Paper 3: Gervais et al. (2012)
@@ -103,21 +139,28 @@ summary(mod)
 
 # summary_pips = rbind(summary_pips,data.frame(Study = "Gervais et al. (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = pip_out$PIP_cv_lower,PIP = pip_out$PIP_cv,PIP_upper = pip_out$PIP_cv_upper,Replicated="No",PredictionMarket = 0.17, Survey = 0.20))
 
-pip_sub = c()
-pip_sub_lower = c()
-pip_sub_upper = c()
+cl <- makeCluster(7)
+registerDoSNOW(cl)
+iterations <- 10000
+pb <- txtProgressBar(max = iterations, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+output <- foreach(i=1:iterations,.packages=c("caret"),
+                  .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                    result <- do_SIM(i,dat1,"gaussian")
+                    pip_sub = result$pip_sub
+                    pip_sub_lower = result$pip_sub_lower
+                    pip_sub_upper  = result$pip_sub_upper
+                    return(cbind(pip_sub,pip_sub_lower,pip_sub_upper ))
+                  }
+close(pb)
+stopCluster(cl)
 
-for(i in 1:10000){
-  set.seed(i)
-  fit = PIP_K_rep_cv(dat1,5,"gaussian",0.05,100,seed=i)
-  pip_sub = c(pip_sub,fit$PIP_cv)
-  pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
-  pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
-  
-  print(i)
-}
+i=1988
+output = do_SIM(i,dat1,"gaussian",0.025)
 
-summary_pips = rbind(summary_pips,data.frame(Study = "Gervais et al. (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(pip_sub,0.025),PIP =mean(pip_sub),PIP_upper = quantile(pip_sub,0.975),Replicated="No",PredictionMarket = 0.17, Survey = 0.20))
+#summary_pips = rbind(summary_pips,data.frame(Study = "Gervais et al. (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(output[,"pip_sub"],0.025),PIP =mean(output[,"pip_sub"]),PIP_upper = quantile(output[,"pip_sub"],0.975),Replicated="No",PredictionMarket = 0.17, Survey = 0.20))
+summary_pips = rbind(summary_pips,data.frame(Study = "Gervais et al. (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = output$pip_sub_lower,PIP =output$pip_sub,PIP_upper = output$pip_sub_upper,Replicated="No",PredictionMarket = 0.17, Survey = 0.20))
 
 # Paper 4: Balafoutas et al. (2012)
 
@@ -146,21 +189,28 @@ summary(mod)
 # 
 # summary_pips = rbind(summary_pips,data.frame(Study = "Balafoutas et al.  (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = pip_out$PIP_cv_lower,PIP = pip_out$PIP_cv,PIP_upper = pip_out$PIP_cv_upper,Replicated="Yes",PredictionMarket = 0.75, Survey = 0.43))
 
-pip_sub = c()
-pip_sub_lower = c()
-pip_sub_upper = c()
+cl <- makeCluster(7)
+registerDoSNOW(cl)
+iterations <- 10000
+pb <- txtProgressBar(max = iterations, style = 3)
+progress <- function(n) setTxtProgressBar(pb, n)
+opts <- list(progress = progress)
+output <- foreach(i=1:iterations,.packages=c("caret"),
+                  .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                    result <- do_SIM(i,dat1,"binomial")
+                    pip_sub = result$pip_sub
+                    pip_sub_lower = result$pip_sub_lower
+                    pip_sub_upper  = result$pip_sub_upper
+                    return(cbind(pip_sub,pip_sub_lower,pip_sub_upper ))
+                  }
+close(pb)
+stopCluster(cl)
 
-for(i in 1:10000){
-  fit = PIP_K_rep_cv(dat1,5,"binomial",0.05,100,seed=i)
-  pip_sub = c(pip_sub,fit$PIP_cv)
-  pip_sub_lower = c(pip_sub_lower,fit$PIP_cv_lower)
-  pip_sub_upper = c(pip_sub_upper,fit$PIP_cv_upper)
-  
-  print(i)
-}
+i=1988
+output = do_SIM(i,dat1,"binomial",0.025)
 
-summary_pips = rbind(summary_pips,data.frame(Study = "Balafoutas et al.  (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(pip_sub,0.025),PIP =mean(pip_sub),PIP_upper = quantile(pip_sub,0.975),Replicated="Yes",PredictionMarket = 0.75, Survey = 0.43))
-
+#summary_pips = rbind(summary_pips,data.frame(Study = "Balafoutas et al.  (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = quantile(output[,"pip_sub"],0.025),PIP =mean(output[,"pip_sub"]),PIP_upper = quantile(output[,"pip_sub"],0.975),Replicated="Yes",PredictionMarket = 0.75, Survey = 0.43))
+summary_pips = rbind(summary_pips,data.frame(Study = "Balafoutas et al.  (2012)",pval = round(summary(mod)$coef[2,4],4),PIP_lower = output$pip_sub_lower,PIP =output$pip_sub,PIP_upper = output$pip_sub_upper,Replicated="Yes",PredictionMarket = 0.75, Survey = 0.43))
 
 summary_pips[,c("pval","PIP_lower","PIP","PIP_upper")] = round(summary_pips[,c("pval","PIP_lower","PIP","PIP_upper")],4)
 

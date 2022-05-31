@@ -9,7 +9,7 @@ for (beta11 in c(0,-1,-4)){
   for(sampsize in c(20,40,60,100,400)){
     cl <- makeCluster(7)
     registerDoSNOW(cl)
-    iterations <- 100
+    iterations <- 10000
     pb <- txtProgressBar(max = iterations, style = 3)
     progress <- function(n) setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
