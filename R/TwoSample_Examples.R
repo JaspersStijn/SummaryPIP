@@ -262,23 +262,62 @@ for(beta11 in c(0,-1,-4)){
   for( sampsize in c(40,400)){
     use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
-    colnames(output)[1] = "pip_C1"
-    colnames(output)[10] = "pip_C2"
+    colnames(output)[1] = "C1"
+    colnames(output)[2] ="Exp"
+    colnames(output)[10] = "C2"
+    colnames(output)[5] ="SS"
+    colnames(output)[7] ="SS_rep100"
+    colnames(output)[8] ="LOO"
+    colnames(output)[12] ="CV5"
+    colnames(output)[15] ="rep_CV5"
     means <- apply(output,2,mean)
     true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
-    boxplot(output[,c("pip_C1","pip_C2","pip_exp")])
+    #boxplot(output[,c("C1","C2","Exp","SS","LOO","CV5","rep_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    boxplot(output[,c("C1","C2","Exp")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     abline(h=true_vals$PIP_theor,col="red",lwd=2)
     abline(h=true_vals$PIP_exp ,col='blue',lwd=2)
-    abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
-    points(means[c("pip_C1","pip_C2","pip_exp")],pch=20)
+    #points(means[c("C1","C2","Exp","SS","LOO","CV5","rep_CV5")],pch=20)
+    points(means[c("C1","C2","Exp")],pch=20)
+    
   }
   plot.new()
   par(mai=c(0,0,0,0))
-  legend(x="center", ncol=3,legend=c('Theoretical PIP',paste0('Expected PIP for specified sampsize'),'Expected PIP for n=100000000' ),
-         col=c("red","blue","darkgreen"),lty=c(1,1,2),lwd=2)
+  legend(x="center", ncol=2,legend=c('Theoretical PIP',paste0('Expected PIP')),
+         col=c("red","blue"),lty=c(1,1),lwd=2)
 
 }
 
+
+for(beta11 in c(0,-1,-4)){
+  layout(matrix(c(1,2,3,3), ncol=2, byrow=TRUE), heights=c(4,1))
+  par(mai=rep(0.5, 4))
+  for( sampsize in c(40,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "C1"
+    colnames(output)[2] ="Exp"
+    colnames(output)[10] = "C2"
+    colnames(output)[5] ="SS"
+    colnames(output)[7] ="SS_rep100"
+    colnames(output)[8] ="LOO"
+    colnames(output)[12] ="CV5"
+    colnames(output)[15] ="rep_CV5"
+    means <- apply(output,2,mean)
+    true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
+    #boxplot(output[,c("C1","C2","Exp","SS","LOO","CV5","rep_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    boxplot(output[,c("C1","C2","Exp","emp_cond")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    abline(h=true_vals$PIP_theor,col="red",lwd=2)
+    abline(h=true_vals$PIP_exp ,col='blue',lwd=2)
+    #points(means[c("C1","C2","Exp","SS","LOO","CV5","rep_CV5")],pch=20)
+    points(means[c("C1","C2","Exp","emp_cond")],pch=20)
+    
+  }
+  plot.new()
+  par(mai=c(0,0,0,0))
+  legend(x="center", ncol=2,legend=c('Theoretical PIP',paste0('Expected PIP')),
+         col=c("red","blue"),lty=c(1,1),lwd=2)
+  
+}
 
 
 
@@ -386,6 +425,45 @@ ggplot() + geom_point(data = subset(Gaussian_out,EffectSize=="Effect Size: -4"),
   geom_line(aes(y = Relation,x=x), data = subset( df_relation,EffectSize=="Effect Size: -4"), colour = "black",linetype=1) +
   facet_wrap(~ EffectSize + SampleSize, scales = "free")+ scale_colour_grey()
 
+
+# Summary Table
+
+prop = c()
+effect = c()
+samplesize = c()
+measure = c()
+for(beta11 in c(0,-1,-4)){
+  for(sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+colnames(output)
+  if(beta11==0){
+    correct_pval = 100*mean(output[,"pval_mod1"]>0.05)
+    correct_LOO = 100*mean(output[,"pip_LOO"]<0.5)
+    correct_MSE = 100*mean(output[,"mse1_rep_CV"]>output[,"mse0_rep_CV"])
+    correct_repCV5 = 100*mean(output[,"pip_rep_CV5"]<0.5)
+    correct_CV5 = 100*mean(output[,"pip_CV5"]<0.5)
+  }
+  else{
+    correct_pval = 100*mean(output[,"pval_mod1"]<0.05)
+    correct_LOO = 100*mean(output[,"pip_LOO"]>0.5)
+    correct_MSE = 100*mean(output[,"mse1_rep_CV"]<output[,"mse0_rep_CV"])
+    correct_repCV5 = 100*mean(output[,"pip_rep_CV5"]>0.5)
+    correct_CV5 = 100*mean(output[,"pip_CV5"]>0.5)
+  }
+  prop = c(prop,c(correct_pval,correct_repCV5,correct_MSE))
+  effect = c(effect,rep(beta11,3))
+  samplesize = c(samplesize,rep(sampsize,3))
+  measure = c(measure,c("p-value","PIP","MSE"))
+  cat(beta11,"&",sampsize,"&",format(round(correct_pval, digits=2), nsmall = 2),"&",format(round(correct_MSE, digits=2), nsmall = 2),"&",format(round(correct_LOO, digits=2), nsmall = 2),"&",format(round(correct_CV5, digits=2), nsmall = 2),"&",format(round(correct_repCV5, digits=2), nsmall = 2),paste0("\\","\\"),"\n")
+}
+}
+library(ggplot2)
+out = data.frame(cbind(prop,effect,samplesize,measure))
+out$effect = as.factor(out$effect)
+out$prop = as.numeric(out$prop)
+out$samplesize = as.numeric(out$samplesize)
+ggplot(data=out)+geom_line(aes(x=samplesize,y=prop,linetype=effect,color= measure))
 
 
 
