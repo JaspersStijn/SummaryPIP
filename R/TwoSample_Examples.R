@@ -469,3 +469,51 @@ ggplot(data=out)+geom_line(aes(x=samplesize,y=prop,linetype=effect,color= measur
 
 
 
+
+# Coverage
+
+for (beta11 in c(0,-1,-4)){
+  for(sampsize in c(20,40,60,100,400)){
+    cl <- makeCluster(7)
+    registerDoSNOW(cl)
+    iterations <- 10000
+    pb <- txtProgressBar(max = iterations, style = 3)
+    progress <- function(n) setTxtProgressBar(pb, n)
+    opts <- list(progress = progress)
+    output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","caret"),
+                      .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                        result <- do_SIM_coverage(i,10,beta11,2,0.5,sampsize)
+                        PIP = result$PIP
+                        PIP_lower = result$PIP_lower
+                        PIP_upper = result$PIP_upper
+                        
+                        return(cbind(PIP,PIP_lower,PIP_upper))
+                      }
+    close(pb)
+    stopCluster(cl)
+    
+    save(output,file=paste0(paste(paste0("R/Output_Sims/sim_coverage",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+  }
+  
+}
+
+
+library(glue)
+
+for(beta11 in c(0,-1,-4)){
+  for(sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_coverage",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    if(beta11 == 0){coverage = mean(output[,"PIP_lower"]<=0.5)}
+    if(beta11 != 0) {coverage = mean(output[,"PIP_lower"]>0.5)}
+    string="Effect size= {beta11}; Sample size= {sampsize}; Coverage= {coverage}."
+    print(glue(string))
+}}
+
+
+
+
+
+
+
+

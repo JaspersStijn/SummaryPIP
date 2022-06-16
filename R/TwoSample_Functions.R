@@ -306,7 +306,7 @@ PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
   mse0_CV = mean(mse0_CV_sub)
   mse1_CV = mean(mse1_CV_sub)
   }
-    return(list("PIP_cv"=mean(PIP_cv),PIP_cv_lower=quantile(PIP_cv,alpha),PIP_cv_upper = quantile(PIP_cv,1-alpha),"mse0"=mean(mse0_CV),"mse1"=mean(mse1_CV)))
+    return(list("PIP_cv"=mean(PIP_cv),"PIP_cv_lower"=quantile(PIP_cv,alpha),"PIP_cv_upper" = quantile(PIP_cv,1-alpha),"mse0"=mean(mse0_CV),"mse1"=mean(mse1_CV)))
 }
 
 
@@ -436,5 +436,33 @@ f_pip = function(n,p){
 }
 
 
+
+# Assess coverage of repeated CV
+
+do_SIM_coverage = function(i,beta01,beta11,sigma,prop1,sampsize){
+  set.seed(i)
+  # True value for m0 intercept
+  beta00 = beta01 + beta11*prop1
+  # Sample dataset with specified sample size
+  N = sampsize
+  X = c(rep(0,(1-prop1)*sampsize),rep(1,prop1*sampsize))
+  U <- rnorm(sampsize, sd = sigma)
+  Y = beta01 + beta11*X + U
+  training=data.frame(X, Y)
+  CV_input=training
+  names(CV_input) = c("x","y")
+  # Repeated 5-fold CV
+  
+  out_rep_CV_5 = PIP_K_rep_cv(CV_input,5,type="gaussian",alpha=0.05,reps=100)
+  
+  PIP = out_rep_CV_5$PIP_cv
+  PIP_lower = out_rep_CV_5$PIP_cv_lower
+  PIP_upper = out_rep_CV_5$PIP_cv_upper
+  
+  return(list("PIP" = PIP,
+              "PIP_lower" = PIP_lower,
+              "PIP_upper"  = PIP_upper
+  ))
+}
 
 
