@@ -497,21 +497,84 @@ for (beta11 in c(0,-1,-4)){
   
 }
 
-
 library(glue)
+library(ggplot2)
+library(dplyr)
 
 for(beta11 in c(0,-1,-4)){
   for(sampsize in c(20,40,60,100,400)){
-    use = load(paste0(paste(paste0("R/Output_Sims/sim_coverage",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_coverage",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
     if(beta11 == 0){coverage = mean(output[,"PIP_lower"]<=0.5)}
     if(beta11 != 0) {coverage = mean(output[,"PIP_lower"]>0.5)}
     string="Effect size= {beta11}; Sample size= {sampsize}; Coverage= {coverage}."
     print(glue(string))
-}}
+  }}
+
+for(beta11 in c(0,-1,-4)){
+  for(sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    if(beta11 == 0){coverage = mean(output[,"pval_mod1"]>=0.05)}
+    if(beta11 != 0) {coverage = mean(output[,"pval_mod1"]<0.05)}
+    string="Effect size= {beta11}; Sample size= {sampsize}; Coverage= {coverage}."
+    print(glue(string))
+  }}
 
 
 
+coverage_PIP = c()
+coverage_p = c()
+sampsizes = c()
+effects = c()
+for(beta11 in c(0,-1,-4)){
+  for(sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_coverage",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    if(beta11 == 0){coverage_PIP = c(coverage_PIP,mean(output[,"PIP_lower"]<=0.5))}
+    if(beta11 != 0) {coverage_PIP = c(coverage_PIP,mean(output[,"PIP_lower"]>0.5))}
+    
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    if(beta11 == 0){coverage_p = c(coverage_p,mean(output[,"pval_mod1"]>=0.05))}
+    if(beta11 != 0) {coverage_p = c(coverage_p,mean(output[,"pval_mod1"]<0.05))}
+    sampsizes = c(sampsizes,sampsize)
+    effects = c(effects,beta11)
+    
+  }}
+
+dat = data.frame("coverage" = c(coverage_PIP, coverage_p),"Statistic" = rep(c("PIP","pval"),each=length(coverage_PIP)),"EffectSize" = rep(effects,2),"SampleSize"=rep(sampsizes,2))
+
+ggplot(data = dat, 
+       aes(x = SampleSize, 
+           y = coverage, 
+           linetype = factor(EffectSize),
+           col = Statistic)) +
+  geom_line() 
+
+
+
+
+
+
+
+
+for(beta11 in c(0,-1,-4)){
+  for(sampsize in c(20,40,60,100,400)){
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_coverage",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    if(beta11 == 0){correct_PIP = mean(output[,"PIP_lower"]<=0.5)}
+    if(beta11 != 0) {correct_PIP = mean(output[,"PIP_lower"]>0.5)}
+    
+    
+    use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    if(beta11 == 0){correct_pval  = mean(output[,"pval_mod1"]>=0.05);correct_MSE = mean(output[,"mse0_rep_CV"]<output[,"mse1_rep_CV"])}
+    if(beta11 != 0) {correct_pval  =mean(output[,"pval_mod1"]<0.05);correct_MSE = mean(output[,"mse0_rep_CV"]>output[,"mse1_rep_CV"])}
+    
+    cat(format(round(100*correct_pval, digits=2), nsmall = 2),"&",format(round(100*correct_MSE, digits=2), nsmall = 2),"&",format(round(100*correct_PIP, digits=2), nsmall = 2),"\n")
+    
+  }}
 
 
 
