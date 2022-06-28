@@ -578,5 +578,49 @@ for(beta11 in c(0,-1,-4)){
 
 
 
+# RF
+sampsize=400
+require(doSNOW)
+require(ggplot2)
+  for(sampsize in c(40,100)){
+    cl <- makeCluster(7)
+    registerDoSNOW(cl)
+    iterations <- 100
+    pb <- txtProgressBar(max = iterations, style = 3)
+    progress <- function(n) setTxtProgressBar(pb, n)
+    opts <- list(progress = progress)
+    output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","caret"),
+                      .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                        result <- do_SIM_RF(i,sampsize)
+                        pip_SS = result$PIP_SS
+                        pip_CV5=result$PIP_CV5
+                        pip_rep_CV5=result$PIP_rep_CV5
+                        pip_emp = result$PIP_emp
+                        return(cbind(pip_SS,pip_CV5,pip_rep_CV5,pip_emp))
+                      }
+    close(pb)
+    stopCluster(cl)
+    
+    save(output,file=paste0(paste("R/Output_Sims/sim_RF_new",paste0("sampsize",sampsize),sep="_"),".R"))
+  }
+  
+for( sampsize in c(40,100)){
+  use = load(paste0(paste("R/Output_Sims/sim_RF",paste0("sampsize",sampsize),sep="_"),".R"))
+  output = get(use)
+  colnames(output)[1] = "SS"
+  colnames(output)[2] ="CV5"
+  colnames(output)[3] = "rep_CV5"
+  colnames(output)[4] ="emp_cond"
+  use_diff  = output[,c("CV5","rep_CV5","SS")] - output[,"emp_cond"]
+  means = apply(use_diff,2,mean)
+  boxplot(use_diff,main=paste0("Sample size: ",sampsize))
+  abline(h=0,lwd=2,lty=2)
+  points(means,pch=20)
+}
+
+
+
+
+
 
 

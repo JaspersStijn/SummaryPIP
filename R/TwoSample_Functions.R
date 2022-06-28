@@ -205,8 +205,9 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
 
   # Create K equally sized folds after randomly shuffling the data
   yourData<-data
-  cvIndex <- createFolds(factor(data$x), K, returnTrain = T)
-
+  if(!(type%in%c("gbm","rf"))) {cvIndex <- createFolds(factor(data$x), K, returnTrain = T)}
+  if((type%in%c("gbm","rf"))) {cvIndex <- createFolds(data$y, K, returnTrain = T)}
+  
   #Perform K fold cross validation
 
   pip_cv = c()
@@ -231,10 +232,64 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
       mod1 = glm(y ~ x, family="binomial", data=trainData, maxit = 5000)
       mod0 = glm(y ~ 1, family="binomial", data=trainData, maxit = 5000)
     }
-
+    
+    
+    if(type=="gbm"){
+      grid <-  expand.grid(interaction.depth = 2, 
+                      n.trees = 50, 
+                      shrinkage = 0.1,
+                      n.minobsinnode = 2)
+      trainControl <- trainControl(method="cv", number=10)
+      metric <- "RMSE"
+      set.seed(99)
+      mod1 <- train(y ~ .
+                    , data=trainData
+                    , distribution="gaussian"
+                    , method="gbm"
+                    , trControl=trainControl
+                    , verbose=FALSE
+                    , tuneGrid=grid
+                    , metric=metric
+                    , bag.fraction=0.75
+      )      
+      
+      mod0 <- train(y ~ x1+x3
+                    , data=trainData
+                    , distribution="gaussian"
+                    , method="gbm"
+                    , trControl=trainControl
+                    , verbose=FALSE
+                    , tuneGrid=grid
+                    , metric=metric
+                    , bag.fraction=0.75
+      )   
+      
+      pred0 = predict(mod0,testData,type="raw")
+      pred1 = predict(mod1,testData,type="raw")
+    }
+    
+    if(type=="rf"){
+      ctrl <- trainControl(method = "none")
+      
+      mod1 <- train(y ~ ., data = trainData,
+                    method = "rf",
+                    ntree = 10,
+                    trControl = ctrl,
+                    tuneGrid = data.frame(mtry = 2))    
+      mod0 <- train(y ~ x1+x3, data = trainData,
+                    method = "rf",
+                    ntree = 10,
+                    trControl = ctrl,
+                    tuneGrid = data.frame(mtry = 2))    
+      
+      pred0 = predict(mod0,testData,type="raw")
+      pred1 = predict(mod1,testData,type="raw")
+    }
+    
+    if(!(type%in%c("gbm","rf"))){
     pred0 = predict(mod0,testData,type="response")
     pred1 = predict(mod1,testData,type="response")
-
+    }
     if(type=="poisson") {pip_cv = c(pip_cv,mean((pred1-testData$y*log(pred1)) < (pred0-testData$y*log(pred0)))+0.5*mean((pred1-testData$y*log(pred1)) == (pred0-testData$y*log(pred0))))}
     else{    pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2) )}
 
@@ -252,9 +307,13 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
 
 
 
-
 PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
   set.seed(seed)
+  grid <-  expand.grid(interaction.depth = 2, 
+                       n.trees = 50, 
+                       shrinkage = 0.1,
+                       n.minobsinnode = 2)
+  metric <- "RMSE"
   # Check if K is smaller than sample size
   if(K>nrow(data)){print("error: K should be less than or equal to n")}
   
@@ -264,8 +323,9 @@ PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
   mse1_CV = c()
   for(l in 1:reps){
     yourData<-data[sample(nrow(data)),]
-    cvIndex <- createFolds(factor(yourData$x), K, returnTrain = T)
-
+    if(!(type%in%c("gbm","rf"))) {cvIndex <- createFolds(factor(data$x), K, returnTrain = T)}
+    if((type%in%c("gbm","rf"))) {cvIndex <- createFolds(data$y, K, returnTrain = T)}
+    
   #Perform K fold cross validation
   
   pip_cv = c()
@@ -291,16 +351,61 @@ PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
       mod0 = glm(y ~ 1, family="binomial", data=trainData, maxit = 5000)
     }
     
-    pred0 = predict(mod0,testData,type="response")
-    pred1 = predict(mod1,testData,type="response")
+    if(type=="gbm"){
+      set.seed(99)
+      mod1 <- train(y ~ .
+                    , data=trainData
+                    , distribution="gaussian"
+                    , method="gbm"
+                    , verbose=FALSE
+                    , tuneGrid=grid
+                    , metric=metric
+                    , bag.fraction=0.75
+      )      
+      
+      mod0 <- train(y ~ x1+x3
+                    , data=trainData
+                    , distribution="gaussian"
+                    , method="gbm"
+                    , verbose=FALSE
+                    , tuneGrid=grid
+                    , metric=metric
+                    , bag.fraction=0.75
+      )   
+      
+      pred0 = predict(mod0,testData,type="raw")
+      pred1 = predict(mod1,testData,type="raw")
+    }
+    
+    if(type=="rf"){
+      ctrl <- trainControl(method = "none")
+      
+      mod1 <- train(y ~ ., data = trainData,
+                    method = "rf",
+                    ntree = 10,
+                    trControl = ctrl,
+                    tuneGrid = data.frame(mtry = 2))    
+      mod0 <- train(y ~ x1+x3, data = trainData,
+                    method = "rf",
+                    ntree = 10,
+                    trControl = ctrl,
+                    tuneGrid = data.frame(mtry = 2))    
+      
+      pred0 = predict(mod0,testData,type="raw")
+      pred1 = predict(mod1,testData,type="raw")
+    }
+    
+    if(!(type%in%c("gbm","rf"))){
+      pred0 = predict(mod0,testData,type="response")
+      pred1 = predict(mod1,testData,type="response")
+    }
     
     if(type=="poisson") {pip_cv = c(pip_cv,mean((pred1-testData$y*log(pred1)) < (pred0-testData$y*log(pred0)))+0.5*mean((pred1-testData$y*log(pred1)) == (pred0-testData$y*log(pred0))))}
-    else{    pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2) )}
+    else{pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2) )}
     
     mse0_CV_sub = c(mse0_CV_sub,mean((pred0-testData$y)^2))
     mse1_CV_sub = c(mse1_CV_sub,mean((pred1-testData$y)^2))
   }
-  
   PIP_cv = c(PIP_cv,mean(pip_cv))
   
   mse0_CV = mean(mse0_CV_sub)
@@ -463,6 +568,291 @@ do_SIM_coverage = function(i,beta01,beta11,sigma,prop1,sampsize){
               "PIP_lower" = PIP_lower,
               "PIP_upper"  = PIP_upper
   ))
+}
+
+
+
+do_SIM_GBM = function(i, sampsize){
+  set.seed(i)
+
+  trainControl <- trainControl(method="cv", number=10)
+  metric <- "RMSE"
+  
+  gbmGrid <-  expand.grid(interaction.depth = 2, 
+                          n.trees = 50, 
+                          shrinkage = 0.1,
+                          n.minobsinnode = 2)
+  
+  x1=rnorm(sampsize,5,0.9)
+  x2=rnorm(sampsize,10,2.5)
+  x3=rnorm(sampsize,20,6.4)
+
+    
+  error=rnorm(sampsize,0,1.6)
+  y=15-(4*x1)+(2.5*x2)+(5*x3)+error
+  
+  dat = data.frame(cbind(y,x1,x2,x3))
+  
+  set.seed(99)
+  mod1 <- train(y ~ .
+                , data=dat
+                , distribution="gaussian"
+                , method="gbm"
+                , verbose=FALSE
+                , tuneGrid=gbmGrid
+                , metric=metric
+                , bag.fraction=0.75
+  )                  
+  
+  mod0 <- train(y ~ x1+x3
+                , data=dat
+                , distribution="gaussian"
+                , method="gbm"
+                , verbose=FALSE
+                , tuneGrid=gbmGrid
+                , metric=metric
+                , bag.fraction=0.75
+  )                  
+  
+
+  
+  # Empirical
+  total_n = 1000000
+  x1_star=rnorm(total_n,5,0.9)
+  x2_star=rnorm(total_n,10,2.5)
+  x3_star=rnorm(total_n,20,6.4)
+
+  error_star=rnorm(total_n,0,1.6)
+  y_star=15-(4*x1_star)+(2.5*x2_star)+(5*x3_star)+error_star
+  
+  dat_star = data.frame(cbind("x1"=x1_star,"x2"=x2_star,"x3"=x3_star))
+  
+  pred0_star = predict(mod0, newdata=dat_star, type="raw")
+  pred1_star = predict(mod1, newdata=dat_star, type="raw")
+  
+  pip_emp = mean((pred1_star-y_star)^2 < (pred0_star-y_star)^2) + 0.5*mean((pred1_star-y_star)^2 == (pred0_star-y_star)^2)
+
+  CV5 = PIP_K_cv(dat,5,"gbm",alpha=0.05)
+  
+  PIP = CV5$PIP_cv 
+  mse1_CV = CV5$MSE1 
+  mse0_CV = CV5$MSE0 
+
+  
+  rep_CV5 = PIP_K_rep_cv(dat,5,"gbm",alpha=0.05,reps=20)
+
+  #Split sample
+  select = sample(nrow(dat),nrow(dat)/2)
+  dat_train = dat[select,]
+  dat_test = dat[-select,]
+  
+  set.seed(99)
+  mod1 <- train(y ~ .
+                , data=dat_train
+                , distribution="gaussian"
+                , method="gbm"
+                , verbose=FALSE
+                , tuneGrid=gbmGrid
+                , metric=metric
+                , bag.fraction=0.75
+  )                  
+  
+  mod0 <- train(y ~ x1+x3
+                , data=dat_train
+                , distribution="gaussian"
+                , method="gbm"
+                , verbose=FALSE
+                , tuneGrid=gbmGrid
+                , metric=metric
+                , bag.fraction=0.75
+  )   
+  
+  pred0 = predict(mod0, newdata=dat_test, type="raw")
+  pred1 = predict(mod1, newdata=dat_test, type="raw")
+  
+  pip_SS = mean((pred1-dat_test$y)^2 < (pred0-dat_test$y)^2) + 0.5*mean((pred1-dat_test$y)^2 == (pred0-dat_test$y)^2)
+  
+  
+  return(list("PIP_SS"=pip_SS,"PIP_CV5" = PIP,"PIP_rep_CV5" = rep_CV5$PIP_cv,
+              "PIP_emp" = pip_emp))
+}
+
+
+
+
+
+do_SIM_RF = function(i, sampsize){
+  set.seed(i)
+  
+  x1=rnorm(sampsize,5,0.9)
+  x2=rnorm(sampsize,10,2.5)
+  x3=rnorm(sampsize,20,6.4)
+  x4=rnorm(sampsize,15,3)
+  x5=rnorm(sampsize,5,1)
+  
+  
+  error=rnorm(sampsize,0,1.6)
+  y=15-(4*x1)+(2.5*x2)+(5*x3)+(6*x4)+(10*x5)+error
+  
+  dat = data.frame(cbind(y,x1,x2,x3,x4,x5))
+  
+  set.seed(99)
+  ctrl <- trainControl(method = "none")
+  
+  mod1 <- train(y ~ ., data = dat,
+                   method = "rf",
+                   ntree = 10,
+                   trControl = ctrl,
+                   tuneGrid = data.frame(mtry = 2))    
+  mod0 <- train(y ~ x1+x3, data = dat,
+                method = "rf",
+                ntree = 10,
+                trControl = ctrl,
+                tuneGrid = data.frame(mtry = 2))    
+  
+  # Empirical
+  total_n = 1000000
+  x1_star=rnorm(total_n,5,0.9)
+  x2_star=rnorm(total_n,10,2.5)
+  x3_star=rnorm(total_n,20,6.4)
+  x4_star=rnorm(total_n,15,3)
+  x5_star=rnorm(total_n,5,1)
+  
+  error_star=rnorm(total_n,0,1.6)
+  y_star=15-(4*x1_star)+(2.5*x2_star)+(5*x3_star)+(6*x4_star)+(10*x5_star)+error_star
+  
+  dat_star = data.frame(cbind("x1"=x1_star,"x2"=x2_star,"x3"=x3_star,"x4"=x4_star,"x5"=x5_star))
+  
+  pred0_star = predict(mod0, newdata=dat_star, type="raw")
+  pred1_star = predict(mod1, newdata=dat_star, type="raw")
+  
+  pip_emp = mean((pred1_star-y_star)^2 < (pred0_star-y_star)^2) + 0.5*mean((pred1_star-y_star)^2 == (pred0_star-y_star)^2)
+  
+  CV5 = PIP_K_cv(dat,5,"rf",alpha=0.05)
+  
+  PIP = CV5$PIP_cv 
+  mse1_CV = CV5$MSE1 
+  mse0_CV = CV5$MSE0 
+  
+  
+  rep_CV5 = PIP_K_rep_cv(dat,5,"rf",alpha=0.05,reps=20)
+  
+  #Split sample
+  select = sample(nrow(dat),nrow(dat)/2)
+  dat_train = dat[select,]
+  dat_test = dat[-select,]
+  
+  set.seed(99)
+  mod1 <- train(y ~ ., data = dat_train,
+                method = "rf",
+                ntree = 10,
+                trControl = ctrl,
+                tuneGrid = data.frame(mtry = 2))         
+  
+  mod0 <- train(y ~ x1+x3, data = dat_train,
+                method = "rf",
+                ntree = 10,
+                trControl = ctrl,
+                tuneGrid = data.frame(mtry = 2))    
+  
+  pred0 = predict(mod0, newdata=dat_test, type="raw")
+  pred1 = predict(mod1, newdata=dat_test, type="raw")
+  
+  pip_SS = mean((pred1-dat_test$y)^2 < (pred0-dat_test$y)^2) + 0.5*mean((pred1-dat_test$y)^2 == (pred0-dat_test$y)^2)
+  
+  
+  return(list("PIP_SS"=pip_SS,"PIP_CV5" = PIP,"PIP_rep_CV5" = rep_CV5$PIP_cv,
+              "PIP_emp" = pip_emp))
+}
+
+
+
+
+do_SIM_RF_fasterSS = function(i, sampsize){
+  set.seed(i)
+  
+  x1=rnorm(sampsize,5,0.9)
+  x2=rnorm(sampsize,10,2.5)
+  x3=rnorm(sampsize,20,6.4)
+  x4=rnorm(sampsize,15,3)
+  x5=rnorm(sampsize,5,1)
+  
+  
+  error=rnorm(sampsize,0,1.6)
+  y=15-(4*x1)+(2.5*x2)+(5*x3)+(6*x4)+(10*x5)+error
+  
+  dat = data.frame(cbind(y,x1,x2,x3,x4,x5))
+  
+  set.seed(99)
+  ctrl <- trainControl(method = "none")
+  
+  mod11 <- train(y ~ ., data = dat,
+                method = "rf",
+                ntree = 10,
+                trControl = ctrl,
+                tuneGrid = data.frame(mtry = 2))    
+  mod01 <- train(y ~ x1+x3, data = dat,
+                method = "rf",
+                ntree = 10,
+                trControl = ctrl,
+                tuneGrid = data.frame(mtry = 2))    
+  
+  
+  #CV5 = PIP_K_cv(dat,5,"rf",alpha=0.05)
+  
+  #PIP = CV5$PIP_cv 
+  #mse1_CV = CV5$MSE1 
+  #mse0_CV = CV5$MSE0 
+  
+  
+  #rep_CV5 = PIP_K_rep_cv(dat,5,"rf",alpha=0.05,reps=20)
+  
+  #Split sample
+  # select = sample(nrow(dat),nrow(dat)/2)
+  # dat_train = dat[select,]
+  # dat_test = dat[-select,]
+  # 
+  # set.seed(99)
+  # mod1 <- train(y ~ ., data = dat_train,
+  #               method = "rf",
+  #               ntree = 10,
+  #               trControl = ctrl,
+  #               tuneGrid = data.frame(mtry = 2))         
+  # 
+  # mod0 <- train(y ~ x1+x3, data = dat_train,
+  #               method = "rf",
+  #               ntree = 10,
+  #               trControl = ctrl,
+  #               tuneGrid = data.frame(mtry = 2))    
+  # 
+  # pred0 = predict(mod0, newdata=dat_test, type="raw")
+  # pred1 = predict(mod1, newdata=dat_test, type="raw")
+  
+  #pip_SS = mean((pred1-dat_test$y)^2 < (pred0-dat_test$y)^2) + 0.5*mean((pred1-dat_test$y)^2 == (pred0-dat_test$y)^2)
+  
+  
+  # Empirical
+  set.seed(1988)
+  total_n = 1000000
+  x1_star=rnorm(total_n,5,0.9)
+  x2_star=rnorm(total_n,10,2.5)
+  x3_star=rnorm(total_n,20,6.4)
+  x4_star=rnorm(total_n,15,3)
+  x5_star=rnorm(total_n,5,1)
+  
+  error_star=rnorm(total_n,0,1.6)
+  y_star=15-(4*x1_star)+(2.5*x2_star)+(5*x3_star)+(6*x4_star)+(10*x5_star)+error_star
+  
+  dat_star = data.frame(cbind("x1"=x1_star,"x2"=x2_star,"x3"=x3_star,"x4"=x4_star,"x5"=x5_star))
+  
+  pred0_star = predict(mod01, newdata=dat_star, type="raw")
+  pred1_star = predict(mod11, newdata=dat_star, type="raw")
+  
+  pip_emp = mean((pred1_star-y_star)^2 < (pred0_star-y_star)^2) + 0.5*mean((pred1_star-y_star)^2 == (pred0_star-y_star)^2)
+  
+  
+  return(list("PIP_SS"=0.5,"PIP_CV5" = 0.5,"PIP_rep_CV5" = 0.5,
+              "PIP_emp" = pip_emp))
 }
 
 
