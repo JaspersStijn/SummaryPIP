@@ -235,34 +235,44 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
     
     
     if(type=="gbm"){
-      grid <-  expand.grid(interaction.depth = 2, 
-                      n.trees = 50, 
-                      shrinkage = 0.1,
+      ctrl <- trainControl(method = "none")
+      gbmGrid
+       grid <-  expand.grid(interaction.depth = 2, 
+                       n.trees = 50, 
+                       shrinkage = 0.1,
                       n.minobsinnode = 2)
-      trainControl <- trainControl(method="cv", number=10)
-      metric <- "RMSE"
+      # trainControl <- trainControl(method="cv", number=10)
+      # metric <- "RMSE"
       set.seed(99)
-      mod1 <- train(y ~ .
-                    , data=trainData
-                    , distribution="gaussian"
-                    , method="gbm"
-                    , trControl=trainControl
-                    , verbose=FALSE
-                    , tuneGrid=grid
-                    , metric=metric
-                    , bag.fraction=0.75
-      )      
+      # mod1 <- train(y ~ .
+      #               , data=trainData
+      #               , distribution="gaussian"
+      #               , method="gbm"
+      #               , trControl=trainControl
+      #               , verbose=FALSE
+      #               , tuneGrid=grid
+      #               , metric=metric
+      #               , bag.fraction=0.75
+      # )      
+      # 
+      # mod0 <- train(y ~ x1+x3
+      #               , data=trainData
+      #               , distribution="gaussian"
+      #               , method="gbm"
+      #               , trControl=trainControl
+      #               , verbose=FALSE
+      #               , tuneGrid=grid
+      #               , metric=metric
+      #               , bag.fraction=0.75
+      # )   
+      mod1 <- train(y ~ ., data = trainData,
+                    method = "gbm",
+                    trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  grid)   
       
-      mod0 <- train(y ~ x1+x3
-                    , data=trainData
-                    , distribution="gaussian"
-                    , method="gbm"
-                    , trControl=trainControl
-                    , verbose=FALSE
-                    , tuneGrid=grid
-                    , metric=metric
-                    , bag.fraction=0.75
-      )   
+      mod0 <- train(y ~ x1+x2+x3, data = trainData,
+                    method = "gbm",
+                    trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  grid)  
+      
       
       pred0 = predict(mod0,testData,type="raw")
       pred1 = predict(mod1,testData,type="raw")
@@ -273,12 +283,12 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
       
       mod1 <- train(y ~ ., data = trainData,
                     method = "rf",
-                    ntree = 10,
+                    ntree = 100,
                     trControl = ctrl,
                     tuneGrid = data.frame(mtry = 2))    
       mod0 <- train(y ~ x1+x3, data = trainData,
                     method = "rf",
-                    ntree = 10,
+                    ntree = 100,
                     trControl = ctrl,
                     tuneGrid = data.frame(mtry = 2))    
       
@@ -353,25 +363,35 @@ PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
     
     if(type=="gbm"){
       set.seed(99)
-      mod1 <- train(y ~ .
-                    , data=trainData
-                    , distribution="gaussian"
-                    , method="gbm"
-                    , verbose=FALSE
-                    , tuneGrid=grid
-                    , metric=metric
-                    , bag.fraction=0.75
-      )      
+      ctrl <- trainControl(method = "none")
       
-      mod0 <- train(y ~ x1+x3
-                    , data=trainData
-                    , distribution="gaussian"
-                    , method="gbm"
-                    , verbose=FALSE
-                    , tuneGrid=grid
-                    , metric=metric
-                    , bag.fraction=0.75
-      )   
+      # mod1 <- train(y ~ .
+      #               , data=trainData
+      #               , distribution="gaussian"
+      #               , method="gbm"
+      #               , verbose=FALSE
+      #               , tuneGrid=grid
+      #               , metric=metric
+      #               , bag.fraction=0.75
+      # )      
+      # 
+      # mod0 <- train(y ~ x1+x3
+      #               , data=trainData
+      #               , distribution="gaussian"
+      #               , method="gbm"
+      #               , verbose=FALSE
+      #               , tuneGrid=grid
+      #               , metric=metric
+      #               , bag.fraction=0.75
+      # )   
+      
+      mod1 <- train(y ~ ., data = trainData,
+                    method = "gbm",
+                    trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  grid)   
+      
+      mod0 <- train(y ~ x1+x2+x3, data = trainData,
+                    method = "gbm",
+                    trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  grid)  
       
       pred0 = predict(mod0,testData,type="raw")
       pred1 = predict(mod1,testData,type="raw")
@@ -382,12 +402,12 @@ PIP_K_rep_cv = function(data,K,type,alpha=0.05,reps,seed=1988){
       
       mod1 <- train(y ~ ., data = trainData,
                     method = "rf",
-                    ntree = 10,
+                    ntree = 100,
                     trControl = ctrl,
                     tuneGrid = data.frame(mtry = 2))    
       mod0 <- train(y ~ x1+x3, data = trainData,
                     method = "rf",
-                    ntree = 10,
+                    ntree = 100,
                     trControl = ctrl,
                     tuneGrid = data.frame(mtry = 2))    
       
@@ -681,46 +701,50 @@ do_SIM_GBM = function(i, sampsize){
 
 
 
-do_SIM_RF = function(i, sampsize){
+
+do_SIM_GBM_new = function(i, sampsize){
   set.seed(i)
-  
-  x1=rnorm(sampsize,5,0.9)
-  x2=rnorm(sampsize,10,2.5)
-  x3=rnorm(sampsize,20,6.4)
-  x4=rnorm(sampsize,15,3)
-  x5=rnorm(sampsize,5,1)
-  
+
+  x1=round(runif(sampsize,0,6))
+  x2=round(rnorm(sampsize))
+  x3=rbinom(sampsize,1,prob=0.5)
+  x4=round(runif(sampsize,0,1),1)
+  x5=round(runif(sampsize,1,2),1)
   
   error=rnorm(sampsize,0,1.6)
-  y=15-(4*x1)+(2.5*x2)+(5*x3)+(6*x4)+(10*x5)+error
-  
+  y=(4*abs(x1))^(3*x4)+(5*x2)+(2*x3)^x5+error
+
   dat = data.frame(cbind(y,x1,x2,x3,x4,x5))
-  
+
   set.seed(99)
   ctrl <- trainControl(method = "none")
+  gbmGrid <-  expand.grid(interaction.depth = 2, 
+                          n.trees = 50, 
+                          shrinkage = 0.1,
+                          n.minobsinnode = 2)
   
   mod1 <- train(y ~ ., data = dat,
-                   method = "rf",
-                   ntree = 10,
-                   trControl = ctrl,
-                   tuneGrid = data.frame(mtry = 2))    
-  mod0 <- train(y ~ x1+x3, data = dat,
-                method = "rf",
-                ntree = 10,
-                trControl = ctrl,
-                tuneGrid = data.frame(mtry = 2))    
+                method = "gbm",
+                trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  gbmGrid )   
+  
+  mod0 <- train(y ~ x1+x2+x3, data = dat,
+                method = "gbm",
+                trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  gbmGrid)   
+
   
   # Empirical
   total_n = 1000000
-  x1_star=rnorm(total_n,5,0.9)
-  x2_star=rnorm(total_n,10,2.5)
-  x3_star=rnorm(total_n,20,6.4)
-  x4_star=rnorm(total_n,15,3)
-  x5_star=rnorm(total_n,5,1)
   
+  x1_star=round(runif(total_n,0,6))
+  x2_star=round(rnorm(total_n))
+  x3_star=rbinom(total_n,1,prob=0.5)
+  x4_star=round(runif(total_n,0,1),1)
+  x5_star=round(runif(total_n,1,2),1)
+
   error_star=rnorm(total_n,0,1.6)
-  y_star=15-(4*x1_star)+(2.5*x2_star)+(5*x3_star)+(6*x4_star)+(10*x5_star)+error_star
+  y_star=(4*abs(x1_star))^(3*x4_star)+(5*x2_star)+(2*x3_star)^x5_star+error_star
   
+
   dat_star = data.frame(cbind("x1"=x1_star,"x2"=x2_star,"x3"=x3_star,"x4"=x4_star,"x5"=x5_star))
   
   pred0_star = predict(mod0, newdata=dat_star, type="raw")
@@ -728,14 +752,14 @@ do_SIM_RF = function(i, sampsize){
   
   pip_emp = mean((pred1_star-y_star)^2 < (pred0_star-y_star)^2) + 0.5*mean((pred1_star-y_star)^2 == (pred0_star-y_star)^2)
   
-  CV5 = PIP_K_cv(dat,5,"rf",alpha=0.05)
+  CV5 = PIP_K_cv(dat,5,"gbm",alpha=0.05)
   
   PIP = CV5$PIP_cv 
   mse1_CV = CV5$MSE1 
   mse0_CV = CV5$MSE0 
   
-  
-  rep_CV5 = PIP_K_rep_cv(dat,5,"rf",alpha=0.05,reps=20)
+
+  rep_CV5 = PIP_K_rep_cv(dat,5,"gbm",alpha=0.05,reps=20)
   
   #Split sample
   select = sample(nrow(dat),nrow(dat)/2)
@@ -744,16 +768,17 @@ do_SIM_RF = function(i, sampsize){
   
   set.seed(99)
   mod1 <- train(y ~ ., data = dat_train,
-                method = "rf",
-                ntree = 10,
-                trControl = ctrl,
-                tuneGrid = data.frame(mtry = 2))         
+                method = "gbm",
+                trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  gbmGrid)   
   
-  mod0 <- train(y ~ x1+x3, data = dat_train,
-                method = "rf",
-                ntree = 10,
-                trControl = ctrl,
-                tuneGrid = data.frame(mtry = 2))    
+  mod0 <- train(y ~ x1+x2+x3, data = dat_train,
+                method = "gbm",
+                trControl = ctrl,verbose=F, distribution="gaussian",tuneGrid=  gbmGrid)   
+  
+  
+  
+
+  
   
   pred0 = predict(mod0, newdata=dat_test, type="raw")
   pred1 = predict(mod1, newdata=dat_test, type="raw")
@@ -764,6 +789,15 @@ do_SIM_RF = function(i, sampsize){
   return(list("PIP_SS"=pip_SS,"PIP_CV5" = PIP,"PIP_rep_CV5" = rep_CV5$PIP_cv,
               "PIP_emp" = pip_emp))
 }
+
+
+
+
+
+
+
+
+
 
 
 

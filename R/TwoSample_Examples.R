@@ -75,12 +75,12 @@ for(beta11 in c(0,-1,-4)){
     #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_C1","pip_C2","emp_cond","pip_exp","emp_exp" ,"pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     #boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
-    boxplot(output[,c("C1","C2","Exp","LOO","CV5","rep_CV5","SS","SS_rep100")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    boxplot(output[,c("C1","C2","Exp","LOO","CV5","rep_CV5","SS")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     abline(h=true_vals$PIP_theor,col="black",lty=2)
     abline(h=true_vals$PIP_exp ,col='black',lty=3)
     #abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
     #points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
-    points(means[c("C1","C2","Exp","LOO","CV5","rep_CV5","SS","SS_rep100")],pch=20)
+    points(means[c("C1","C2","Exp","LOO","CV5","rep_CV5","SS")],pch=20)
 
     print(means)
     PIP = c(PIP,output[,c("rep_CV5")])
@@ -343,7 +343,7 @@ for(beta11 in c(0,-1,-4)){
     colnames(output)[15] ="rep_CV5"
     
     colnames(output)
-    use_diff  = output[,c("C1","C2","LOO","CV5","rep_CV5","SS","SS_rep100")] - output[,"emp_cond"]
+    use_diff  = output[,c("C1","C2","LOO","CV5","rep_CV5","SS")] - output[,"emp_cond"]
     means = apply(use_diff,2,mean)
     boxplot(use_diff,main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
     abline(h=0,lwd=2,lty=2)
@@ -577,21 +577,22 @@ for(beta11 in c(0,-1,-4)){
   }}
 
 
+mod0$finalModel
 
 # RF
-sampsize=400
+
 require(doSNOW)
 require(ggplot2)
-  for(sampsize in c(40,100)){
+  for(sampsize in c(40,400)){
     cl <- makeCluster(7)
     registerDoSNOW(cl)
-    iterations <- 100
+    iterations <- 2000
     pb <- txtProgressBar(max = iterations, style = 3)
     progress <- function(n) setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
     output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","caret"),
                       .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
-                        result <- do_SIM_RF(i,sampsize)
+                        result <- do_SIM_GBM_new(i,sampsize)
                         pip_SS = result$PIP_SS
                         pip_CV5=result$PIP_CV5
                         pip_rep_CV5=result$PIP_rep_CV5
@@ -601,11 +602,22 @@ require(ggplot2)
     close(pb)
     stopCluster(cl)
     
-    save(output,file=paste0(paste("R/Output_Sims/sim_RF_new",paste0("sampsize",sampsize),sep="_"),".R"))
-  }
+    save(output,file=paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
+
+    colnames(output)[1] = "SS"
+    colnames(output)[2] ="CV5"
+    colnames(output)[3] = "rep_CV5"
+    colnames(output)[4] ="emp_cond"
+    use_diff  = output[,c("CV5","rep_CV5","SS")] - output[,"emp_cond"]
+    means = apply(use_diff,2,mean)
+    boxplot(use_diff,main=paste0("Sample size: ",sampsize))
+    abline(h=0,lwd=2,lty=2)
+    points(means,pch=20)  
+}
   
-for( sampsize in c(40,100)){
-  use = load(paste0(paste("R/Output_Sims/sim_RF",paste0("sampsize",sampsize),sep="_"),".R"))
+par(mfrow=c(1,2))
+for( sampsize in c(40,400)){
+  use = load(paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
   output = get(use)
   colnames(output)[1] = "SS"
   colnames(output)[2] ="CV5"
@@ -619,6 +631,8 @@ for( sampsize in c(40,100)){
 }
 
 
+i=1
+sampsize=100
 
 
 
