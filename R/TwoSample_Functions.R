@@ -236,7 +236,6 @@ PIP_K_cv = function(data,K,type,alpha=0.05){
     
     if(type=="gbm"){
       ctrl <- trainControl(method = "none")
-      gbmGrid
        grid <-  expand.grid(interaction.depth = 2, 
                        n.trees = 50, 
                        shrinkage = 0.1,

@@ -586,7 +586,7 @@ require(ggplot2)
   for(sampsize in c(40,400)){
     cl <- makeCluster(7)
     registerDoSNOW(cl)
-    iterations <- 2000
+    iterations <- 100
     pb <- txtProgressBar(max = iterations, style = 3)
     progress <- function(n) setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
@@ -632,9 +632,10 @@ for( sampsize in c(40,400)){
 
 
 i=1
-sampsize=100
+sampsize=400
 
 
 
 
-
+apply(use_diff,2,var)
+boxplot(output)
