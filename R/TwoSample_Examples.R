@@ -639,3 +639,97 @@ sampsize=400
 
 apply(use_diff,2,var)
 boxplot(output)
+
+
+
+
+
+
+
+
+
+
+# Paper main = only sampsize 20 and 400
+
+PIP = c()
+pval = c()
+MSE_diff = c()
+EffectSize = c()
+Samplesize = c()
+
+for(beta11 in c(0,-1,-4)){
+  par(mfrow=c(1,2))
+    #layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
+  par(mai=rep(0.5, 4))
+  for( sampsize in c(20,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "C1"
+    colnames(output)[2] ="Exp"
+    colnames(output)[10] = "C2"
+    colnames(output)[5] ="SS"
+    colnames(output)[7] ="SS_rep100"
+    colnames(output)[8] ="LOO"
+    colnames(output)[12] ="CV5"
+    colnames(output)[15] ="rep_CV5"
+    
+    means <- apply(output,2,mean)
+    true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
+    #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    #boxplot(output[,c("pip_C1","pip_C2","emp_cond","pip_exp","emp_exp" ,"pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    #boxplot(output[,c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    boxplot(output[,c("C1","C2","Exp","LOO","CV5","rep_CV5","SS")],cex.axis=1.15)#,main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    legend("bottomleft",c('Theoretical PIP',paste0('Expected PIP')),
+           col=c("black"),lty=c(2,3),lwd=2,cex=1.15)
+    abline(h=true_vals$PIP_theor,col="black",lty=2,lwd=2)
+    abline(h=true_vals$PIP_exp ,col='black',lty=3,lwd=2)
+    #abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
+    #points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
+    points(means[c("C1","C2","Exp","LOO","CV5","rep_CV5","SS")],pch=20)
+    
+    print(means)
+    PIP = c(PIP,output[,c("rep_CV5")])
+    pval = c(pval,output[,c("pval_mod1")])
+    MSE_diff = c(MSE_diff,output[,c("mse1_CV")]-output[,c("mse0_CV")])
+    EffectSize = c(EffectSize,rep(paste0('Effect Size: ',beta11),nrow(output)))
+    Samplesize = c(Samplesize,rep(paste0('Sample Size: ',sampsize),nrow(output)))
+  }
+
+  
+}
+
+
+
+
+# Difference with empirical conditional PIP
+
+
+for(beta11 in c(0,-1,-4)){
+  #layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
+  par(mfrow=c(1,2))
+  par(mai=rep(0.5, 4))
+  for( sampsize in c(20,400)){
+    use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+    output = get(use)
+    colnames(output)[1] = "C1"
+    colnames(output)[2] ="Exp"
+    colnames(output)[10] = "C2"
+    colnames(output)[5] ="SS"
+    colnames(output)[7] ="SS_rep100"
+    colnames(output)[8] ="LOO"
+    colnames(output)[12] ="CV5"
+    colnames(output)[15] ="rep_CV5"
+    
+    colnames(output)
+    use_diff  = output[,c("C1","C2","LOO","CV5","rep_CV5","SS")] - output[,"emp_cond"]
+    means = apply(use_diff,2,mean)
+    boxplot(use_diff,cex.lab=1.15)#,main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
+    abline(h=0,lwd=2,lty=2)
+    points(means,pch=20)
+  }
+}
+
+
+
+
