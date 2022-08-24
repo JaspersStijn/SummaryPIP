@@ -615,8 +615,8 @@ require(ggplot2)
     points(means,pch=20)  
 }
 
-par(mfrow=c(1,2))
-for( sampsize in c(40,400)){
+par(mfrow=c(2,2))
+for( sampsize in c(40,60,100,400)){
   use = load(paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
   output = get(use)
   colnames(output)[1] = "SS"
@@ -628,6 +628,7 @@ for( sampsize in c(40,400)){
   boxplot(use_diff,main=paste0("Sample size: ",sampsize))
   abline(h=0,lwd=2,lty=2)
   points(means,pch=20)
+  print(apply(output[,c("CV5","rep_CV5","SS")]>0.5,2,sum)/10000)
 }
 
 
