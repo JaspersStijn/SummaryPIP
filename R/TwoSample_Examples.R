@@ -580,13 +580,13 @@ for(beta11 in c(0,-1,-4)){
 mod0$finalModel
 
 # RF
-
+sampsize=20
 require(doSNOW)
 require(ggplot2)
-  for(sampsize in c(40,400)){
+  for(sampsize in c(60,100)){
     cl <- makeCluster(7)
     registerDoSNOW(cl)
-    iterations <- 100
+    iterations <- 10000
     pb <- txtProgressBar(max = iterations, style = 3)
     progress <- function(n) setTxtProgressBar(pb, n)
     opts <- list(progress = progress)
@@ -614,7 +614,7 @@ require(ggplot2)
     abline(h=0,lwd=2,lty=2)
     points(means,pch=20)  
 }
-  
+
 par(mfrow=c(1,2))
 for( sampsize in c(40,400)){
   use = load(paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
