@@ -734,3 +734,18 @@ for(beta11 in c(0,-1,-4)){
 
 
 
+sampsize=400
+use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
+output = get(use)
+head(output)
+
+plot(output[,"pip_cond"],output[,"mse1_CV"]-output[,"mse0_CV"])
+
+
+rel_mse = function(x){
+  return(-4*4*qnorm(x)^2)
+}
+
+lines(seq(0.5,0.9999,length=1000),sapply(seq(0.5,0.9999,length=1000),rel_mse),col="red")
+
+
