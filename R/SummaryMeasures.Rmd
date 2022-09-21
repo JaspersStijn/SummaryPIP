@@ -1,0 +1,171 @@
+---
+title: "Performance measures"
+author: "Stijn Jaspers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Assessing the performance of machine learning models
+
+In this document, different performance measures for prediction based on machine learning models are discussed. First, attention is given to some global performance measures. These measures are useful when comparing between different models or when tuning the parameters within a model, but they cannot be used for explaining why a model made a specific prediction. Therefore, we also look at local perfromance measures, such as Local Interpretable Model-Agnostic Explanations (LIME) and SHapley Additive exPlanations (SHAP). 
+
+When explaining the different concepts, we will also show an application based on the Concrete Compressive Strength Data Set, which is experimental data from UCI (University of California machine learning repository) and discussed in Yeh (2018). 
+
+
+```{r}
+library(readxl)
+library(DT)
+dat = read_excel("Concrete_Data.xls",sheet=1)
+datatable(dat)
+names(dat) = c("Cement","BFS","Ash","Water","Plast","CA","FA","Age","CCS")
+datatable(dat)
+```
+
+The dataset consists of a continuous response, being the Concrete compressive strength, and 8 input features, which are all quantitative. The response looks as follows  
+
+```{r}
+boxplot(dat$CCS,horizontal=TRUE)
+```
+
+For example purposes, we also add a binary response variable, defined as 1 when CCS>35 and 0 otherwise, which leads to a balanced outcome:
+```{r}
+dat_Bin = dat
+dat_Bin$Indicator = as.factor((dat$CCS>35)*1)
+table(dat$Indicator)
+```
+
+```{r,fig.width=16, fig.height=12}
+library(caret)
+featurePlot(x = dat_Bin[, 1:8], 
+            y = as.factor(dat_Bin$Indicator), 
+            plot = "pairs",
+            ## Add a key at the top
+            auto.key = list(columns = 3))
+```
+
+
+## Global Performance measures
+
+When using machine learning methodology, the original dataset is split into two parts: a bigger part (e.g. 80% of the original data) for training the models (training set) and a smaller part (e.g. the remaining 20%) for assessing the model performance (test set). In addition, when the model parameters need to be tuned, techniques like cross-validation can be used to further split the training set to also obtain validation sets which can be used for parameter optimization. A 5-fold cross-validation approach is graphically depicted in the Figure below. In split 1, the model is trained on folds 2-4 and validated on fold 1 (which is the left-out fold in this case). The same procedure is repeated for splits 2-5 and an averaged performance metric can be calculated. The parameter value corresponding to the best averaged performance metric is selected as the optimal choice for the model under investigation.
+
+![](images/grid_search_cross_validation.png)
+When calculating the global performance measures, $N$ in the formulas below refers to either the number of observations in the test set or to the number of observations in the left-out fold, depending on whether the user wishes to compare between models or determine the optimal parameters within a model, respectively.
+
+```{r}
+dat_scaled <- data.frame(scale(dat))
+dat_scaled$Indicator = dat_Bin$Indicator
+set.seed(3456)
+trainIndex <- createDataPartition(dat_scaled$Indicator, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+
+datTrain_scaled <- dat_scaled[ trainIndex,]
+datTest_scaled  <- dat_scaled[-trainIndex,]
+
+datTrain <- dat_Bin[ trainIndex,c(1:9)]
+datTest  <- dat_Bin[-trainIndex,c(1:9)]
+
+datTrain_bin <- dat_Bin[ trainIndex,c(1:8,10)]
+datTest_bin  <- dat_Bin[-trainIndex,c(1:8,10)]
+
+datatable(datTrain)
+datatable(datTest)
+```
+
+
+
+### Continuous outcomes
+
+For continuous outcomes, the three most common performance metrics are Mean Absolute Error (MAE), Mean Squared Error (MSE) and Root Mean Squared Error (RMSE). Below, these metrics are further detailed upon and are applied using a linear regression model fitted on the training dataset introduced above:
+```{r}
+mod_lin<- train(CCS ~ ., data = datTrain, 
+                 method = "lm")
+pred =  predict(mod_lin, datTest)
+plot(pred,datTest$CCS)
+
+mod_log = train(Indicator ~ ., data = datTrain_bin, 
+                 method = "glm",
+                  family = "binomial")
+pred_bin =  predict(mod_log, datTest_bin)
+```
+
+
+
+#### Mean Absolute Error (MAE),
+
+The Mean Absolute Error is the average of the difference between the ground truth and the predicted values. Mathematically, its represented as :
+$$
+MAE = \frac{1}{N} \sum_{i=1}^N{\left|y_i - \hat{y_i}\right|} 
+$$
+
+where
+
+* $y_i$ is the true value,
+* $y_i$ is the predicted value from the machine learnig model,
+* $N$ is the number of observations that have been predicted.
+
+Applied to the CCS data, we obtain:
+```{r}
+MAE = mean(abs(datTest$CCS - pred))
+print(MAE)
+```
+which means that our linear regression model makes an average absolute error of `r round(MAE,4)` MPa. 
+
+
+
+#### Mean Squared Error (MSE) and Root Mean Squared Error (RMSE).
+
+The mean squared error is perhaps the most popular metric used for regression problems. It essentially finds the average of the squared difference between the target value and the value predicted by the regression model:
+$$
+MSE = \frac{1}{N} \sum_{i=1}^N{(y_i - \hat{y_i})^2} 
+$$
+It should be noted that the error interpretation has to be done with squaring factor in mind. This is remedied by looking at the square root of the MSE, denoted by the root mean squared error, abbreviated by RMSE:
+$$
+RMSE = \sqrt{\frac{1}{N} \sum_{i=1}^N{(y_i - \hat{y_i})^2} }
+$$
+
+Applied to the CCS data, we obtain:
+```{r}
+MSE = mean((datTest$CCS - pred)^2)
+print(MSE)
+RMSE = sqrt(MSE)
+print(RMSE)
+```
+which means that our linear regression model makes an average squared error of `r round(MSE,4)` MPa squared. Or equivalently, the average error is `r round(RMSE,4)` MPa.
+
+
+
+
+
+### Binary outcomes
+
+For binary (or more general categorical) outcomes, one often makes a confusion matrix, from where different metrics can be derived. Some of them include:
+
+* Recall, Sensitivity
+* Specificity
+* Precision
+
+which are explained on the Figure below.
+
+![](images/PerformanceMeasures.png)
+
+In addition, we also have 
+
+* Accuracy = $\frac{TP+TN}{TP+TN+FP+FN}$
+* Cohen's Kappa tells us how much better our classifier is performing over the performance of a classifier that simply guesses at random according to the frequency of each class ($\kappa = \frac{p_o-p_e}{1-p_e}$, with $p_o$ the observed agreement, i.e. accuracy, and $p_e$ the expected agreement). Landis and Koch (1977) provide a way to characterize values: a value < 0 is indicating no agreement , 0–0.20 as slight, 0.21–0.40 as fair, 0.41–0.60 as moderate, 0.61–0.80 as substantial, and 0.81–1 as almost perfect agreement.  
+* F1-score = $2\frac{Precision * Recall}{Precision + Recall}$
+* AUC is the area under the ROC curve, where the ROC curve plot the true positive rate (TPR, i.e. recall) versus the true negative rate (TNR, i.e. 1-specificity). The area is located between 0 and 1, where a value of 0.5 corresponds to a random classification.  
+
+An application is found below based on a logistic regression model fitted on the CCS data
+```{r}
+confusionMatrix(pred_bin,datTest_bin$Indicator, mode = "everything")
+```
+
+# References
+I-Cheng Yeh, "Modeling of strength of high performance concrete using artificial neural networks," Cement and Concrete Research, Vol. 28, No. 12, pp. 1797-1808 (1998).
+
+
