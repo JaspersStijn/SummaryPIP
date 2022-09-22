@@ -23,6 +23,7 @@ dat = read_excel("Concrete_Data.xls",sheet=1)
 datatable(dat)
 names(dat) = c("Cement","BFS","Ash","Water","Plast","CA","FA","Age","CCS")
 datatable(dat)
+x_var = names(dat)[1:8]
 ```
 
 The dataset consists of a continuous response, being the Concrete compressive strength, and 8 input features, which are all quantitative. The response looks as follows  
@@ -34,8 +35,9 @@ boxplot(dat$CCS,horizontal=TRUE)
 For example purposes, we also add a binary response variable, defined as 1 when CCS>35 and 0 otherwise, which leads to a balanced outcome:
 ```{r}
 dat_Bin = dat
-dat_Bin$Indicator = as.factor((dat$CCS>35)*1)
-table(dat$Indicator)
+dat_Bin$Indicator = (dat$CCS>35)*1
+dat_Bin$Indicator =as.factor(c("Low","High")[dat_Bin$Indicator+1])
+table(dat_Bin$Indicator)
 ```
 
 ```{r,fig.width=16, fig.height=12}
@@ -80,19 +82,39 @@ datatable(datTest)
 
 ### Continuous outcomes
 
-For continuous outcomes, the three most common performance metrics are Mean Absolute Error (MAE), Mean Squared Error (MSE) and Root Mean Squared Error (RMSE). Below, these metrics are further detailed upon and are applied using a linear regression model fitted on the training dataset introduced above:
+For continuous outcomes, the three most common performance metrics are Mean Absolute Error (MAE), Mean Squared Error (MSE) and Root Mean Squared Error (RMSE). Below, these metrics are further detailed upon and are applied using a 1) linear regression model and 2) a gradient boosting machine fitted on the training dataset introduced above:
 ```{r}
 mod_lin<- train(CCS ~ ., data = datTrain, 
                  method = "lm")
 pred =  predict(mod_lin, datTest)
 plot(pred,datTest$CCS)
 
+mod_gbm =  train(CCS ~ ., data = datTrain, 
+                 method = "gbm",verbose=FALSE)
+
+pred_gbm =  predict(mod_gbm, datTest)
+
+plot(pred,datTest$CCS)
+points(pred_gbm,datTest$CCS,col="red")
+abline(a=0,b=1,lwd=2,col="blue")
+
 mod_log = train(Indicator ~ ., data = datTrain_bin, 
                  method = "glm",
                   family = "binomial")
 pred_bin =  predict(mod_log, datTest_bin)
+
+ctrl <- trainControl(method = "cv",number=5)
+set.seed(1)
+mod_gbm_bin <- train(Indicator ~ ., data = datTrain_bin,
+                 method = "gbm",
+                 verbose = FALSE,                    
+                 trControl = ctrl)
+
+pred_gbm_bin <- predict(mod_gbm_bin, newdata=datTest_bin)
+
 ```
 
+From the graph above, it is observed that the results of the linear model (shown in black) seem to be less in line with the true observations as compared to the predictions based on the GBM. In addition, it should however be noted that no parameter tuning for the GBM is performed and hence this model could still be improved. For example purposes, this latter step was not included. Based on the global performance measures below, a more formal comparison between the models will be made. 
 
 
 #### Mean Absolute Error (MAE),
@@ -112,8 +134,11 @@ Applied to the CCS data, we obtain:
 ```{r}
 MAE = mean(abs(datTest$CCS - pred))
 print(MAE)
+
+MAE_gbm = mean(abs(datTest$CCS - pred_gbm))
+print(MAE_gbm)
 ```
-which means that our linear regression model makes an average absolute error of `r round(MAE,4)` MPa. 
+which means that our linear regression model makes an average absolute error of `r round(MAE,4)`MPa as compared to an average absolute error of `r round(MAE_gbm,4)`MPa for the GBM model. 
 
 
 
@@ -134,11 +159,13 @@ MSE = mean((datTest$CCS - pred)^2)
 print(MSE)
 RMSE = sqrt(MSE)
 print(RMSE)
+
+MSE_gbm = mean((datTest$CCS - pred_gbm)^2)
+print(MSE_gbm)
+RMSE_gbm = sqrt(MSE_gbm)
+print(RMSE_gbm)
 ```
-which means that our linear regression model makes an average squared error of `r round(MSE,4)` MPa squared. Or equivalently, the average error is `r round(RMSE,4)` MPa.
-
-
-
+which means that our linear regression model makes an average squared error of `r round(MSE,4)`MPa squared as compared to an average squared error of `r round(MSE_gbm,4)`MPa squared for the GBM predictions. Or equivalently, the average error is `r round(RMSE,4)` MPa for the linear model and `r round(RMSE_gbm,4)`MPa for the GBM. One can conclude that the GBM is most appropriate when the aim is to predict new observations.
 
 
 ### Binary outcomes
@@ -160,12 +187,199 @@ In addition, we also have
 * F1-score = $2\frac{Precision * Recall}{Precision + Recall}$
 * AUC is the area under the ROC curve, where the ROC curve plot the true positive rate (TPR, i.e. recall) versus the true negative rate (TNR, i.e. 1-specificity). The area is located between 0 and 1, where a value of 0.5 corresponds to a random classification.  
 
-An application is found below based on a logistic regression model fitted on the CCS data
+An application is found below, where the performance of the logistic regression model on the GBM model fitted on the CCS data with the binary indicator outcome is compared.
+
 ```{r}
 confusionMatrix(pred_bin,datTest_bin$Indicator, mode = "everything")
+confusionMatrix(pred_gbm_bin,datTest_bin$Indicator, mode = "everything")
 ```
+
+## PIP: The Probability of Improved  Prediction
+
+The PIP can be used for both binary and continuous outcomes as it quantifies how often one model outperforms the other when predicting new individual observations. Below, the repCV5 PIP is considered:
+
+### Continuous outcome
+
+* PIP based on the test set
+```{r}
+PIP = mean((datTest$CCS - pred_gbm)^2 < (datTest$CCS - pred)^2)
+print(PIP)
+```
+
+
+* PIP when model training
+
+```{r, cache=TRUE}
+set.seed(1988)
+reps=5
+K=5
+PIP_cv=c()
+for(l in 1:reps){
+  dat=datTrain
+  yourData<-dat[sample(nrow(dat)),]
+  cvIndex <- createFolds(dat$CCS, K, returnTrain = T)
+  
+  #Perform K fold cross validation
+  
+  pip_cv = c()
+
+    for(j in names(cvIndex)){
+    
+    trainData = yourData[cvIndex[[j]],]
+    testData = yourData[-cvIndex[[j]],]
+    
+    x_train <- trainData[, 1:8]
+    y_train <- trainData[, 9]
+    
+    x_test <- testData[, 1:8]
+    y_test <- testData[, 9]
+    
+    #pars = mod_gbm$bestTune
+
+    # gbmGrid <-  expand.grid(interaction.depth = pars$interaction.depth, 
+    #                     n.trees = pars$n.trees, 
+    #                     shrinkage = pars$shrinkage,
+    #                     n.minobsinnode = pars$n.minobsinnode) 
+    
+    mod1=  train(CCS ~ ., data = trainData, 
+                 method = "gbm",verbose=FALSE)
+    
+    mod0<- train(CCS ~ ., data = trainData, 
+                 method = "lm")
+
+    pred0 =  predict(mod0, testData)
+    pred1 =  predict(mod1, testData)
+
+  pip_cv = c(pip_cv,mean((pred1-y_test)^2 < (pred0-y_test)^2) + 0.5*mean((pred1-y_test)^2 == (pred0-y_test)^2) )
+ 
+}
+PIP_cv = c(PIP_cv,mean(pip_cv))
+}
+print(mean(PIP_cv))
+```
+
+### Binary outcome
+
+* PIP based on the test set
+```{r}
+PIP = mean(((datTest_bin$Indicator=="Low")*1 - (pred_gbm_bin=="Low")*1)^2 < ((datTest_bin$Indicator=="Low")*1 - (pred_bin=="Low")*1)^2)+0.5*mean(((datTest_bin$Indicator=="Low")*1 - (pred_gbm_bin=="Low")*1)^2 == ((datTest_bin$Indicator=="Low")*1 - (pred_bin=="Low")*1)^2)
+print(PIP)
+```
+
+
+* PIP when model training
+
+```{r, cache=TRUE}
+set.seed(1988)
+reps=5
+K=5
+PIP_cv=c()
+for(l in 1:reps){
+  dat=datTrain_bin
+  yourData<-dat[sample(nrow(dat)),]
+  cvIndex <- createFolds(dat$Indicator, K, returnTrain = T)
+  
+  #Perform K fold cross validation
+  
+  pip_cv = c()
+
+    for(j in names(cvIndex)){
+    
+    trainData = yourData[cvIndex[[j]],]
+    testData = yourData[-cvIndex[[j]],]
+    
+    x_train <- trainData[, 1:8]
+    y_train <- trainData[, 9]
+    
+    x_test <- testData[, 1:8]
+    y_test <- testData[, 9]=="Low"
+    
+    #pars = mod_gbm$bestTune
+
+    # gbmGrid <-  expand.grid(interaction.depth = pars$interaction.depth, 
+    #                     n.trees = pars$n.trees, 
+    #                     shrinkage = pars$shrinkage,
+    #                     n.minobsinnode = pars$n.minobsinnode) 
+    
+    mod0 = train(Indicator ~ ., data = trainData, 
+                 method = "glm",
+                  family = "binomial")
+    pred0 =  predict(mod0, testData)=="Low"
+
+    ctrl <- trainControl(method = "cv",number=5)
+    set.seed(1)
+    mod1 <- train(Indicator ~ ., data = trainData,
+                 method = "gbm",
+                 verbose = FALSE,                    
+                 trControl = ctrl)
+
+    pred1 <- predict(mod1, newdata=testData)=="Low"
+
+  pip_cv = c(pip_cv,mean((pred1-y_test)^2 < (pred0-y_test)^2) + 0.5*mean((pred1-y_test)^2 == (pred0-y_test)^2) )
+ 
+}
+PIP_cv = c(PIP_cv,mean(pip_cv))
+}
+print(mean(PIP_cv))
+```
+
+
+
+* PIP when considering the raw predicted probabilities for the test set
+
+```{r}
+pred_gbm_bin_raw <- predict(mod_gbm_bin, newdata=datTest_bin,type="prob")[,2]
+pred_log_bin_raw <- predict(mod_log, newdata=datTest_bin,type="prob")[,2]
+
+PIP_raw = mean(((datTest_bin$Indicator=="Low")*1 - pred_gbm_bin_raw)^2 < ((datTest_bin$Indicator=="Low")*1 - pred_log_bin_raw)^2)+0.5*mean(((datTest_bin$Indicator=="Low")*1 - pred_gbm_bin_raw)^2 == ((datTest_bin$Indicator=="Low")*1 - pred_log_bin_raw)^2)
+print(PIP_raw)
+```
+
+From here, we see that while the binary predictions based on logistic regression and GBM are pretty close (PIP = `r round(PIP,4)`), the underlying raw probabilities are targeted more towards the extremes for GBM (PIP = `r round(PIP_raw,4)`)  
+
+## Local Performance measures
+
+Above, it was seen that the GBM often outperforms standard linear or logistic regression models when it comes down to predictive accuracy. One of the mentioned disadvantages for the GBM is that it is less interpretable, in the sense that one cannot tell directly how specific covariates influence the prediction. Nevertheless, this disadvantage is is easily addressed with various tools such as variable importance, partial dependence plots, LIME, SHAP,...).
+
+
+
+
+### Variable importance
+
+### Partial dependence 
+
+
+```{r}
+library(pdp)
+library(ggplot2)
+
+for(x in x_var){
+par1 <- partial(mod_gbm, pred.var = x, chull = TRUE)
+plot1 <- autoplot(par1, contour = TRUE)
+print(plot1)
+}
+
+
+# Two Variables
+par2 <- partial(mod_gbm, pred.var = x_var[1:2], chull = TRUE)
+plot2 <- autoplot(par2, contour = TRUE, 
+               legend.title = "Partial\ndependence")
+print(plot2)
+```
+
+
+
 
 # References
 I-Cheng Yeh, "Modeling of strength of high performance concrete using artificial neural networks," Cement and Concrete Research, Vol. 28, No. 12, pp. 1797-1808 (1998).
+
+http://uc-r.github.io/gbm_regression
+
+
+
+
+
+
+
 
 
