@@ -90,7 +90,7 @@ pred =  predict(mod_lin, datTest)
 plot(pred,datTest$CCS)
 
 mod_gbm =  train(CCS ~ ., data = datTrain, 
-                 method = "gbm",verbose=FALSE)
+                 method = "xgbTree",verbosity=0)
 
 pred_gbm =  predict(mod_gbm, datTest)
 
@@ -106,9 +106,9 @@ pred_bin =  predict(mod_log, datTest_bin)
 ctrl <- trainControl(method = "cv",number=5)
 set.seed(1)
 mod_gbm_bin <- train(Indicator ~ ., data = datTrain_bin,
-                 method = "gbm",
+                 method = "xgbTree",
                  verbose = FALSE,                    
-                 trControl = ctrl)
+                 trControl = ctrl,verbosity=0)
 
 pred_gbm_bin <- predict(mod_gbm_bin, newdata=datTest_bin)
 
@@ -242,7 +242,7 @@ for(l in 1:reps){
     #                     n.minobsinnode = pars$n.minobsinnode) 
     
     mod1=  train(CCS ~ ., data = trainData, 
-                 method = "gbm",verbose=FALSE)
+                 method = "xgbTree",verbosity=0)
     
     mod0<- train(CCS ~ ., data = trainData, 
                  method = "lm")
@@ -309,8 +309,7 @@ for(l in 1:reps){
     ctrl <- trainControl(method = "cv",number=5)
     set.seed(1)
     mod1 <- train(Indicator ~ ., data = trainData,
-                 method = "gbm",
-                 verbose = FALSE,                    
+                 method = "xgbTree",verbosity=0,                    
                  trControl = ctrl)
 
     pred1 <- predict(mod1, newdata=testData)=="Low"
@@ -341,12 +340,20 @@ From here, we see that while the binary predictions based on logistic regression
 
 Above, it was seen that the GBM often outperforms standard linear or logistic regression models when it comes down to predictive accuracy. One of the mentioned disadvantages for the GBM is that it is less interpretable, in the sense that one cannot tell directly how specific covariates influence the prediction. Nevertheless, this disadvantage is is easily addressed with various tools such as variable importance, partial dependence plots, LIME, SHAP,...).
 
-
+Below, we only focus on the GBM model for the continuous outcome variable.
 
 
 ### Variable importance
 
+```{r}
+library(gbm)
+gbm_imp = varImp(mod_gbm)
+plot(gbm_imp)
+```
+
 ### Partial dependence 
+
+In the plots below, we show the partial dependence of the output on each of the individual input variables. The y-axis mentions yhat, but is rather the average output based on the mean of all other input features. For example, age seems to have a positive effect on CCS upto 100 days, after which there is no longer an effect.
 
 
 ```{r}
@@ -367,6 +374,187 @@ plot2 <- autoplot(par2, contour = TRUE,
 print(plot2)
 ```
 
+### LIME
+
+```{r, fig.height=16,fig.width=12}
+library(lime)
+explainer <- lime(datTrain,mod_gbm, bin_continuous = TRUE, quantile_bins = FALSE)
+explanation <- explain(datTest[1:4,], explainer,n_features = 8)
+explanation[, 2:9]
+plot_features(explanation, ncol = 1)
+```
+
+### SHAP
+GBM is not natively supported at the moment. We refit using xgboost
+
+
+
+```{r, fig.height=16,fig.width=12}
+library(shapr)
+
+explainer <- shapr(datTrain, mod_gbm$finalModel)
+
+# Specifying the phi_0, i.e. the expected prediction without any features
+p <- mean(datTrain$CCS)
+
+# Computing the actual Shapley values with kernelSHAP accounting for feature dependence using
+# the empirical (conditional) distribution approach with bandwidth parameter sigma = 0.1 (default)
+explanation <- explain(
+  datTest,
+  approach = "empirical",
+  explainer = explainer,
+  prediction_zero = p
+)
+
+# Printing the Shapley values for the test data.
+# For more information about the interpretation of the values in the table, see ?shapr::explain.
+print(explanation$dt)
+#>      none     lstat         rm       dis      indus
+#> 1: 22.446 5.2632030 -1.2526613 0.2920444  4.5528644
+#> 2: 22.446 0.1671903 -0.7088405 0.9689007  0.3786871
+#> 3: 22.446 5.9888016  5.5450861 0.5660136 -1.4304350
+#> 4: 22.446 8.2142203  0.7507569 0.1893368  1.8298305
+#> 5: 22.446 0.5059890  5.6875106 0.8432240  2.2471152
+#> 6: 22.446 1.9929674 -3.6001959 0.8601984  3.1510530
+
+# Plot the resulting explanations for observations 1 and 6
+plot(explanation, plot_phi0 = FALSE, index_x_test = c(1:4))
+
+```
+
+
+
+
+
+## Relation SHAP PIP?
+
+Idea: the SHAP value indicates the individual contribution of each predictor to the total prediction. If the predictors are standardized, then a large contribution points towards a more important variable. Therefore, the mean of the absolute SHAP values should telle something about the importance of a specific predictor. In parallel, a PIP can be calculated for the full model vs. the model without that specific predictor. Is there a relationship between the mean shap valua and the PIP?
+
+Simulation study:
+
+```{r, cache=TRUE}
+library(xgboost)
+library(SHAPforxgboost)
+
+data("Boston", package = "MASS")
+Boston = data.frame(scale(Boston))
+x_var <- c("lstat", "rm", "dis", "indus")
+y_var <- "medv"
+
+PIP = function(drop,reps,seed=1988,dat=Boston){
+PIP_cv = c()
+MSE0 = c()
+MSE1 = c()
+shap = rep(NA,4)
+set.seed(seed)
+for(l in 1:reps){
+  yourData<-dat[sample(nrow(dat)),]
+  cvIndex <- createFolds(dat$medv, 5, returnTrain = T)
+  
+  #Perform K fold cross validation
+  
+  pip_cv = c()
+  mse0 = c()
+  mse1 = c()
+  mean_shap = rep(NA,4)
+    for(j in names(cvIndex)){
+    
+    trainData = yourData[cvIndex[[j]],]
+    testData = yourData[-cvIndex[[j]],]
+    
+    x_train <- as.matrix(trainData[, x_var])
+    y_train <- trainData[, y_var]
+    
+    x_test <- as.matrix(testData[, x_var])
+    y_test <- testData[, y_var]
+    
+    mod0 <-xgboost(
+      data = x_train[,x_var[-drop]],
+      label = y_train,
+      nround = 100,
+      verbose = FALSE
+    ) 
+      
+    mod1<- xgboost(
+        data = x_train,
+        label = y_train,
+        nround = 100,
+        verbose = FALSE
+      )
+    
+    pred0 = predict(mod0,x_test[,x_var[-drop]])
+    pred1 = predict(mod1,x_test)
+
+  pip_cv = c(pip_cv,mean((pred1-y_test)^2 < (pred0-y_test)^2) + 0.5*mean((pred1-y_test)^2 == (pred0-y_test)^2) )
+  mse0 = c(mse0,mean((pred0-y_test)^2))
+  mse1 = c(mse1,mean((pred1-y_test)^2))
+  
+  shap_values <- shap.values(xgb_model = mod1, X_train =x_test)
+  mean_shap = rbind(mean_shap,shap_values$mean_shap_score)
+}
+PIP_cv = c(PIP_cv,mean(pip_cv))
+MSE0 = c(MSE0,mean(mse0))
+MSE1 = c(MSE1,mean(mse1))
+shap = rbind(shap,apply(mean_shap,2,mean,na.rm=TRUE))
+}
+return(list("PIP_cv"=mean(PIP_cv),"MSE0_cv"=mean(MSE0),"MSE1_cv"=mean(MSE1),"SHAP" = apply(shap,2,mean,na.rm=TRUE)))
+}
+
+
+# Simulation based on linaer model fitted on the full scaled Boston data
+lin_mod_full = lm(medv~lstat+rm+dis+indus,data=Boston)
+
+
+
+res <- vector(mode = "list", length = length(x_var))
+names(res) = x_var
+sampsize= 500
+
+for(sims in 1:1000){
+  set.seed(sims)
+  x1 = rnorm(sampsize,0,1)
+  x2 = rnorm(sampsize,0,1)
+  x3 = rnorm(sampsize,0,1)
+  x4 = rnorm(sampsize,0,1)
+  x = cbind(rep(1,sampsize),x1,x2,x3,x4)
+  y = t(coef(lin_mod_full)%*%t(x)) + rnorm(sampsize,0,sigma(lin_mod_full))
+  
+  dat_use = data.frame(cbind(y,x[,2:5]))
+  names(dat_use) = c(y_var,x_var)
+  
+  for(j in 1:length(x_var)){
+    results = PIP(j,reps=10,seed=1988,dat=dat_use)
+    res[[x_var[j]]]$PIP = c(res[[x_var[j]]]$PIP,results$PIP_cv)
+    res[[x_var[j]]]$MSE_diff = c(res[[x_var[j]]]$MSE_diff,results$MSE0_cv - results$MSE1_cv)
+    res[[x_var[j]]]$SHAP = c(res[[x_var[j]]]$SHAP,results$SHAP[x_var[j]])
+  }
+}
+
+
+for(i in 1:4){
+dat_sum = data.frame(cbind(PIP=res[[i]]$PIP,MSE=res[[i]]$MSE_diff,SHAP=res[[i]]$SHAP))
+p = ggplot(dat=dat_sum,aes(x = MSE,y=PIP,col=SHAP))+geom_point()+
+  ggtitle(paste0("Pearson correlation: ",round(cor(res[[i]]$PIP,res[[i]]$MSE),2)))
+print(p)
+}
+
+for(i in 1:4){
+  dat_sum = data.frame(cbind(PIP=res[[i]]$PIP,MSE=res[[i]]$MSE_diff,SHAP=res[[i]]$SHAP))
+  p = ggplot(dat=dat_sum,aes(x = PIP,y=SHAP,col=MSE))+geom_point()+
+    ggtitle(paste0("Pearson correlation: ",round(cor(res[[i]]$PIP,res[[i]]$SHAP),2)))
+  print(p)
+}
+```
+
+```{r}
+for(i in 1:4){
+  dat_sum = data.frame(cbind(PIP=res[[i]]$PIP,MSE=res[[i]]$MSE_diff,SHAP=res[[i]]$SHAP))
+  p = ggplot(dat=dat_sum,aes(x = MSE,y=SHAP,col=PIP))+geom_point()+
+    ggtitle(paste0("Pearson correlation: ",round(cor(res[[i]]$MSE,res[[i]]$SHAP),2)))
+  print(p)
+}
+```
+
 
 
 
@@ -374,7 +562,7 @@ print(plot2)
 I-Cheng Yeh, "Modeling of strength of high performance concrete using artificial neural networks," Cement and Concrete Research, Vol. 28, No. 12, pp. 1797-1808 (1998).
 
 http://uc-r.github.io/gbm_regression
-
+https://cran.r-project.org/web/packages/lime/vignettes/Understanding_lime.html
 
 
 

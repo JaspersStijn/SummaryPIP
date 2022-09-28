@@ -3,3 +3,9 @@ DT
 ggplot2
 lattice
 caret
+gbm
+pdp
+lime
+shapr
+xgboost
+SHAPforxgboost

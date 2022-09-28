@@ -39,10 +39,10 @@ for (beta11 in c(0,-1,-4)){
                       }
     close(pb)
     stopCluster(cl)
-
+    
     save(output,file=paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
   }
-
+  
 }
 
 boxplot(output[,c("pip_CV5","pip_rep_CV5")])
@@ -68,7 +68,7 @@ for(beta11 in c(0,-1,-4)){
     colnames(output)[8] ="LOO"
     colnames(output)[12] ="CV5"
     colnames(output)[15] ="rep_CV5"
-  
+    
     means <- apply(output,2,mean)
     true_vals=TRUE_PIPs_faster(10,beta11,2,0.5,sampsize)
     #boxplot(output[,c("pip_cond1","pip_cond2","pip_exp")],main=paste(paste0("Sample size: ",sampsize),paste0("Beta1: ",beta11),sep= "\n"))
@@ -81,7 +81,7 @@ for(beta11 in c(0,-1,-4)){
     #abline(h=true_vals$PIP_exp_limit ,col='darkgreen',lty=2,lwd=2)
     #points(means[c("pip_C1","pip_C2","pip_exp","pip_LOO","pip_SS","pip_CV5")],pch=25)
     points(means[c("C1","C2","Exp","LOO","CV5","rep_CV5","SS")],pch=20)
-
+    
     print(means)
     PIP = c(PIP,output[,c("rep_CV5")])
     pval = c(pval,output[,c("pval_mod1")])
@@ -94,7 +94,7 @@ for(beta11 in c(0,-1,-4)){
   plot.new()
   legend(x="center", ncol=2,legend=c('Theoretical PIP',paste0('Expected PIP')),
          col=c("black"),lty=c(2,3),lwd=2)
-
+  
 }
 
 
@@ -178,21 +178,21 @@ for(beta11 in c(0,-1,-4)){
     title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
   }}
 
-    mse_diff = output[,"mse1_CV"]-output[,"mse0_CV"]
-    plot(pval,pip)
-    lines(seq(0,max(max(pvals),4e-10),length=1000),sapply(seq(0,max(max(pvals),4e-10),length=1000),f_pip,n=sampsize),col="red",lwd=2)
-    plot(mse_diff,pip)
-    abline(h=0.5,col="red",lwd=2)
-    abline(v=0,col="red",lwd=2)
-    title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
-    par(mfrow=c(1,2))
-    plot(output[,"pip_cond2"],output[,"pip_cond1"])
-    plot(output[,"pip_cond2"],output[,"pip_CV5"])
-    par(mfrow=c(1,2))
-    plot(density(pip))
-    plot(density(pval))
-    title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
-  }}
+mse_diff = output[,"mse1_CV"]-output[,"mse0_CV"]
+plot(pval,pip)
+lines(seq(0,max(max(pvals),4e-10),length=1000),sapply(seq(0,max(max(pvals),4e-10),length=1000),f_pip,n=sampsize),col="red",lwd=2)
+plot(mse_diff,pip)
+abline(h=0.5,col="red",lwd=2)
+abline(v=0,col="red",lwd=2)
+title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
+par(mfrow=c(1,2))
+plot(output[,"pip_cond2"],output[,"pip_cond1"])
+plot(output[,"pip_cond2"],output[,"pip_CV5"])
+par(mfrow=c(1,2))
+plot(density(pip))
+plot(density(pval))
+title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
+}}
 
 
 
@@ -215,23 +215,23 @@ folds <- cut(seq(1,nrow(yourData)),breaks=K,labels=FALSE)
 
 pip_cv = c()
 for(i in 1:nrow(yourData)){
-
-testIndexes <- which(folds==i,arr.ind=TRUE)
-testData <- yourData[testIndexes, ]
-trainData <- yourData[-testIndexes, ]
-
-mod1 = glm(y ~ x, family="gaussian", data=trainData)
-mod0 = glm(y ~ 1, family="gaussian", data=trainData)
-
-pred0 = predict(mod0,testData,type="response")
-pred1 = predict(mod1,testData,type="response")
-pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2))
-
-plot(trainData$x,trainData$y)
-abline(h=coef(mod0),lwd=2,lty=2)
-abline(a=coef(mod1)[1],b=coef(mod1)[2],lwd=2,lty=2,col="red")
-points(testData$x,testData$y,col="darkgreen",pch=19)
-title(paste(c((pred1-testData$y)^2,  (pred0-testData$y)^2)))
+  
+  testIndexes <- which(folds==i,arr.ind=TRUE)
+  testData <- yourData[testIndexes, ]
+  trainData <- yourData[-testIndexes, ]
+  
+  mod1 = glm(y ~ x, family="gaussian", data=trainData)
+  mod0 = glm(y ~ 1, family="gaussian", data=trainData)
+  
+  pred0 = predict(mod0,testData,type="response")
+  pred1 = predict(mod1,testData,type="response")
+  pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2))
+  
+  plot(trainData$x,trainData$y)
+  abline(h=coef(mod0),lwd=2,lty=2)
+  abline(a=coef(mod1)[1],b=coef(mod1)[2],lwd=2,lty=2,col="red")
+  points(testData$x,testData$y,col="darkgreen",pch=19)
+  title(paste(c((pred1-testData$y)^2,  (pred0-testData$y)^2)))
 }
 
 PIP_cv = mean(pip_cv)
@@ -284,7 +284,7 @@ for(beta11 in c(0,-1,-4)){
   par(mai=c(0,0,0,0))
   legend(x="center", ncol=2,legend=c('Theoretical PIP',paste0('Expected PIP')),
          col=c("red","blue"),lty=c(1,1),lwd=2)
-
+  
 }
 
 
@@ -389,7 +389,7 @@ for(beta11 in c(0,-1,-4)){
     output = get(use)
     colnames(output)[1] = "pip_C1"
     colnames(output)[10] = "pip_C2"
-
+    
     f_pip = function(n,p){
       return(
         pnorm(1/(2*sqrt(n))*qt(1-0.5*p,df=n-2))
@@ -436,27 +436,27 @@ for(beta11 in c(0,-1,-4)){
   for(sampsize in c(20,40,60,100,400)){
     use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
-colnames(output)
-  if(beta11==0){
-    correct_pval = 100*mean(output[,"pval_mod1"]>0.05)
-    correct_LOO = 100*mean(output[,"pip_LOO"]<0.5)
-    correct_MSE = 100*mean(output[,"mse1_rep_CV"]>output[,"mse0_rep_CV"])
-    correct_repCV5 = 100*mean(output[,"pip_rep_CV5"]<0.5)
-    correct_CV5 = 100*mean(output[,"pip_CV5"]<0.5)
+    colnames(output)
+    if(beta11==0){
+      correct_pval = 100*mean(output[,"pval_mod1"]>0.05)
+      correct_LOO = 100*mean(output[,"pip_LOO"]<0.5)
+      correct_MSE = 100*mean(output[,"mse1_rep_CV"]>output[,"mse0_rep_CV"])
+      correct_repCV5 = 100*mean(output[,"pip_rep_CV5"]<0.5)
+      correct_CV5 = 100*mean(output[,"pip_CV5"]<0.5)
+    }
+    else{
+      correct_pval = 100*mean(output[,"pval_mod1"]<0.05)
+      correct_LOO = 100*mean(output[,"pip_LOO"]>0.5)
+      correct_MSE = 100*mean(output[,"mse1_rep_CV"]<output[,"mse0_rep_CV"])
+      correct_repCV5 = 100*mean(output[,"pip_rep_CV5"]>0.5)
+      correct_CV5 = 100*mean(output[,"pip_CV5"]>0.5)
+    }
+    prop = c(prop,c(correct_pval,correct_repCV5,correct_MSE))
+    effect = c(effect,rep(beta11,3))
+    samplesize = c(samplesize,rep(sampsize,3))
+    measure = c(measure,c("p-value","PIP","MSE"))
+    cat(beta11,"&",sampsize,"&",format(round(correct_pval, digits=2), nsmall = 2),"&",format(round(correct_MSE, digits=2), nsmall = 2),"&",format(round(correct_LOO, digits=2), nsmall = 2),"&",format(round(correct_CV5, digits=2), nsmall = 2),"&",format(round(correct_repCV5, digits=2), nsmall = 2),paste0("\\","\\"),"\n")
   }
-  else{
-    correct_pval = 100*mean(output[,"pval_mod1"]<0.05)
-    correct_LOO = 100*mean(output[,"pip_LOO"]>0.5)
-    correct_MSE = 100*mean(output[,"mse1_rep_CV"]<output[,"mse0_rep_CV"])
-    correct_repCV5 = 100*mean(output[,"pip_rep_CV5"]>0.5)
-    correct_CV5 = 100*mean(output[,"pip_CV5"]>0.5)
-  }
-  prop = c(prop,c(correct_pval,correct_repCV5,correct_MSE))
-  effect = c(effect,rep(beta11,3))
-  samplesize = c(samplesize,rep(sampsize,3))
-  measure = c(measure,c("p-value","PIP","MSE"))
-  cat(beta11,"&",sampsize,"&",format(round(correct_pval, digits=2), nsmall = 2),"&",format(round(correct_MSE, digits=2), nsmall = 2),"&",format(round(correct_LOO, digits=2), nsmall = 2),"&",format(round(correct_CV5, digits=2), nsmall = 2),"&",format(round(correct_repCV5, digits=2), nsmall = 2),paste0("\\","\\"),"\n")
-}
 }
 library(ggplot2)
 out = data.frame(cbind(prop,effect,samplesize,measure))
@@ -583,36 +583,36 @@ mod0$finalModel
 sampsize=20
 require(doSNOW)
 require(ggplot2)
-  for(sampsize in c(60,100)){
-    cl <- makeCluster(7)
-    registerDoSNOW(cl)
-    iterations <- 10000
-    pb <- txtProgressBar(max = iterations, style = 3)
-    progress <- function(n) setTxtProgressBar(pb, n)
-    opts <- list(progress = progress)
-    output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","caret"),
-                      .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
-                        result <- do_SIM_GBM_new(i,sampsize)
-                        pip_SS = result$PIP_SS
-                        pip_CV5=result$PIP_CV5
-                        pip_rep_CV5=result$PIP_rep_CV5
-                        pip_emp = result$PIP_emp
-                        return(cbind(pip_SS,pip_CV5,pip_rep_CV5,pip_emp))
-                      }
-    close(pb)
-    stopCluster(cl)
-    
-    save(output,file=paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
-
-    colnames(output)[1] = "SS"
-    colnames(output)[2] ="CV5"
-    colnames(output)[3] = "rep_CV5"
-    colnames(output)[4] ="emp_cond"
-    use_diff  = output[,c("CV5","rep_CV5","SS")] - output[,"emp_cond"]
-    means = apply(use_diff,2,mean)
-    boxplot(use_diff,main=paste0("Sample size: ",sampsize))
-    abline(h=0,lwd=2,lty=2)
-    points(means,pch=20)  
+for(sampsize in c(60,100)){
+  cl <- makeCluster(7)
+  registerDoSNOW(cl)
+  iterations <- 10000
+  pb <- txtProgressBar(max = iterations, style = 3)
+  progress <- function(n) setTxtProgressBar(pb, n)
+  opts <- list(progress = progress)
+  output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","caret"),
+                    .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
+                      result <- do_SIM_GBM_new(i,sampsize)
+                      pip_SS = result$PIP_SS
+                      pip_CV5=result$PIP_CV5
+                      pip_rep_CV5=result$PIP_rep_CV5
+                      pip_emp = result$PIP_emp
+                      return(cbind(pip_SS,pip_CV5,pip_rep_CV5,pip_emp))
+                    }
+  close(pb)
+  stopCluster(cl)
+  
+  save(output,file=paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
+  
+  colnames(output)[1] = "SS"
+  colnames(output)[2] ="CV5"
+  colnames(output)[3] = "rep_CV5"
+  colnames(output)[4] ="emp_cond"
+  use_diff  = output[,c("CV5","rep_CV5","SS")] - output[,"emp_cond"]
+  means = apply(use_diff,2,mean)
+  boxplot(use_diff,main=paste0("Sample size: ",sampsize))
+  abline(h=0,lwd=2,lty=2)
+  points(means,pch=20)  
 }
 
 par(mfrow=c(2,2))
@@ -660,7 +660,7 @@ Samplesize = c()
 
 for(beta11 in c(0,-1,-4)){
   par(mfrow=c(1,2))
-    #layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
+  #layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
   par(mai=rep(0.5, 4))
   for( sampsize in c(20,400)){
     use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
@@ -696,7 +696,7 @@ for(beta11 in c(0,-1,-4)){
     EffectSize = c(EffectSize,rep(paste0('Effect Size: ',beta11),nrow(output)))
     Samplesize = c(Samplesize,rep(paste0('Sample Size: ',sampsize),nrow(output)))
   }
-
+  
   
 }
 
@@ -704,8 +704,8 @@ for(beta11 in c(0,-1,-4)){
 
 
 # Difference with empirical conditional PIP
-
-
+beta11=-1
+sampsize=400
 for(beta11 in c(0,-1,-4)){
   #layout(matrix(c(1,2,3,4,5,6,7,7,7), ncol=3, byrow=TRUE), heights=c(4, 4,1))
   par(mfrow=c(1,2))
@@ -732,14 +732,14 @@ for(beta11 in c(0,-1,-4)){
 }
 
 
-
+plot(output[,"mse1_CV"]-output[,"mse0_CV"],output[,"pval_mod1"])
 
 sampsize=400
 use = load(paste0(paste(paste0("R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
 output = get(use)
 head(output)
 
-plot(output[,"pip_cond"],output[,"mse1_CV"]-output[,"mse0_CV"])
+plot(output[,"C1"],output[,"mse1_rep_CV"]-output[,"mse0_rep_CV"],xlab="pip_est_plugin",ylab="MSE_diff based on CV")
 
 
 rel_mse = function(x){
@@ -747,5 +747,13 @@ rel_mse = function(x){
 }
 
 lines(seq(0.5,0.9999,length=1000),sapply(seq(0.5,0.9999,length=1000),rel_mse),col="red")
+
+
+
+
+
+plot(output[,"emp_cond"],output[,"C1"])
+plot(output[,"emp_cond"],output[,"rep_CV5"])
+
 
 
