@@ -176,7 +176,7 @@ for(beta11 in c(0,-1,-4)){
     pip_LOO =  output[,"pip_LOO"]
     plot(pval,pip_CV5)
     title(paste(beta11,sampsize,sep="   "),outer=TRUE,line=-2)
-  }}
+  
 
 mse_diff = output[,"mse1_CV"]-output[,"mse0_CV"]
 plot(pval,pip)
@@ -232,7 +232,7 @@ for(i in 1:nrow(yourData)){
   abline(a=coef(mod1)[1],b=coef(mod1)[2],lwd=2,lty=2,col="red")
   points(testData$x,testData$y,col="darkgreen",pch=19)
   title(paste(c((pred1-testData$y)^2,  (pred0-testData$y)^2)))
-}
+
 
 PIP_cv = mean(pip_cv)
 
@@ -352,6 +352,9 @@ for(beta11 in c(0,-1,-4)){
   plot.new()
 }
 
+
+par(mfrow=c(1,1))
+plot(output[,c("C1")] , output[,"emp_cond"])
 
 
 

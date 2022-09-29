@@ -1,0 +1,302 @@
+---
+title: "Empirical considerations"
+author: "Stijn Jaspers"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r echo=FALSE}
+library(caret)
+```
+
+# General setup
+
+We have two regression models under consideration (two-sample t-test):
+
+* $m^0(\mathbf{\beta^0},x)$ which is the intercept only model: $E[Y|X] = \beta_0^0$
+* $m^1(\mathbf{\beta^1},x)$ which is the intercept + slope model with binary $X$: $E[Y|X] = \beta_0^1 + \beta_1^1X$
+
+We assume that $Y$ is obtained from the most saturated model via the additional assumption that the error terms are normally distributed with mean 0 and variance $\sigma^2$, i.e. the observations of our dataset are simulated from $(i=1,...,n)$:
+$$
+y_i \sim \mathcal{N}(\beta_0^1 + \beta_1^1x_i , \sigma^2)
+$$
+
+
+As an example in this paragraph, we consider the following dataset:
+
+
+```{r}
+  set.seed(1988)
+  beta01 = 10
+  beta11 = -1
+  beta00 = 10+0.5*beta11
+  sigma = 2
+  prop1=0.5
+  sampsize=40
+  
+  # Sample dataset with specified sample size
+  N = sampsize
+  X = c(rep(0,(1-prop1)*sampsize),rep(1,prop1*sampsize))
+  U <- rnorm(sampsize, sd = sigma)
+  Y = beta01 + beta11*X + U
+  
+  training=data.frame(X, Y)
+```
+
+and we fit the corresponding models
+
+```{r}
+  mod1 = lm(Y~X,data=training)
+  mod0 = lm(Y~1,data=training)
+```
+
+Below, we focus further on the (out-of-sample) MSE and the conditional PIP (just PIP below), which are both defined given a specific observed dataset:
+
+$$
+MSE_i = E_{X^*,Y^*}\left[{\left(Y^* - m( \mathbf{\hat{\beta^i}},x)\right)^2 \mid {\cal{O}}}\right] 
+$$
+$$
+PIP = P_{X^*,Y^*}\left({\left(Y^* - m( \mathbf{\hat{\beta^1}},x)\right)^2 < \left(Y^* - m( \mathbf{\hat{\beta^0}},x)\right)^2 \mid {\cal{O}}}\right)
+$$
+Both quantities are in reality unknown as the true underlying distribution of $(X^*,Y^*)$ is unknown, so both should be estimated. The estimators under consideration are:
+
+* For MSE:
+
+  - In sample MSE, obtained from the model fitted in R using the 'sigma' function: 
+  
+  ```{r} 
+  MSE1_hat_insample = summary(mod1)$sigma^2
+  MSE1_hat_insample
+  ```
+  - MSE based on 5-fold cross-validation (divide training data in 5 folds, fit model on 4 folds and estimate MSE based on the left-out fold, repeat for each fold and take average MSE)
+  
+  
+* For PIP:
+
+  - Plug-in estimator $C_1$, defined as $\Phi\left(\frac{\lvert \hat{\beta_1^1}\rvert}{4\sigma} \right)$
+  
+  ```{r} 
+  PIP_C1 = pnorm(abs(coef(mod1)[2])/(4*sigma))
+  PIP_C1
+  ```
+  
+  - PIP based on 5-fold cross-validation (divide training data in 5 folds, fit model on 4 folds and estimate MSE based on the left-out fold, repeat for each fold and take average MSE)
+  
+  
+For the cross-validation, we created the following function, where we calculate the 5-fold CV PIP, MSE1 and MSE0. A plot is shown where for each fold, the MSE difference (MSE1 - MSE0) is plotted against the PIP. Note that for the current example dataset, each fold contains 8 observations, so each time, the PIP and MSE are estimated based on 8 observations. The dashed lines indicate the average estimate over the 5 folds (red=PIP,blue=MSE_diff). The values of the estimates are shown in the title.
+  
+```{r}
+PIP_K_rep_cv = function(data,K,reps,seed=1988,alpha=0.05,plot=FALSE){
+  set.seed(seed)
+  
+  # Create K equally sized folds after randomly shuffling the data
+  PIP_cv = c()
+  mse0_CV = c()
+  mse1_CV = c()
+  for(l in 1:reps){
+    yourData<-data[sample(nrow(data)),]
+    cvIndex <- createFolds(data$y, K, returnTrain = T)
+  
+    #Perform K fold cross validation
+    
+    pip_cv = c()
+    mse0_CV_sub=c()
+    mse1_CV_sub=c()
+    
+    for(j in names(cvIndex)){
+      trainData = yourData[cvIndex[[j]],]
+      testData = yourData[-cvIndex[[j]],]
+      
+      
+      mod1 = glm(y ~ x, family="gaussian", data=trainData)
+      mod0 = glm(y ~ 1, family="gaussian", data=trainData)
+      
+      pred0 = predict(mod0,testData)
+      pred1 = predict(mod1,testData)
+      
+      pip_cv = c(pip_cv,mean((pred1-testData$y)^2 < (pred0-testData$y)^2) + 0.5*mean((pred1-testData$y)^2 == (pred0-testData$y)^2) )
+      
+      mse0_CV_sub = c(mse0_CV_sub,mean((pred0-testData$y)^2))
+      mse1_CV_sub = c(mse1_CV_sub,mean((pred1-testData$y)^2))
+    }
+    if(plot==TRUE){
+      dat_plot = data.frame("pip"=pip_cv,"mse_diff"=mse1_CV_sub-mse0_CV_sub)
+      dat_plot = dat_plot[order(dat_plot$pip),]
+    if(l==1){plot(dat_plot$pip,dat_plot$mse_diff,col=l,ylim=c(-1,2),xlim=c(0,1),xlab="PIP_cv",ylab="MSE_diff_cv")}
+    if(l>1){points(dat_plot$pip,dat_plot$mse_diff,col=l)}}
+    PIP_cv = c(PIP_cv,mean(pip_cv))
+    
+    mse0_CV = mean(mse0_CV_sub)
+    mse1_CV = mean(mse1_CV_sub)
+  }
+  
+  abline(h = mean(mse1_CV)-mean(mse0_CV),col="blue",lty=2,lwd=2)
+  abline(v = mean(PIP_cv),col="red",lty=2,lwd=2)
+  title(paste(paste0("PIP_CV: ",mean(PIP_cv)),paste0("MSE_diff_CV: ",mean(mse1_CV)-mean(mse0_CV)),sep = "\n"))
+  legend("topleft",c("MSE_diff_CV","PIP_CV"),col=c("blue","red"),lwd=2,lty=2)
+  
+  return(list("PIP_cv"=mean(PIP_cv),"PIP_cv_lower"=quantile(PIP_cv,alpha),"PIP_cv_upper" = quantile(PIP_cv,1-alpha),"mse0"=mean(mse0_CV),"mse1"=mean(mse1_CV)))
+}
+
+dat_in = training
+names(dat_in) = c("x","y")
+
+cv_out = PIP_K_rep_cv(dat_in,5,1,plot=TRUE)
+```
+
+We can do the same for repeated 5-fold CV, where for the clarity of the graph, we consider 10 repetitions below (in the paper, we took 50 reps).
+
+```{r}
+cv_out_rep = PIP_K_rep_cv(dat_in,5,10,plot=TRUE)
+```
+
+# Deeper look into empirical values for MSE and PIP
+
+In addition, since we know the true values in our simulation study, we can also have a look at the empirical values of these quantities. In order to do this, we take a sample of $N = 1e^7$ datapoints $(X^*,Y^*)$ and evaluate for a given fitted models the following expressions:
+
+$$
+MSE_{emp} = \frac{1}{N} \sum_{j=1}^{N}{\left(y_j^* - m(\mathbf{\hat{\beta^i}},x_j^*)\right)^2}
+$$
+$$
+PIP_{emp} = \frac{1}{N} \sum_{j=1}^{N}{ \left[ \left(y_j^* - m(\mathbf{\hat{\beta^1}},x_j^*)\right)^2 < \left(y_j^* - m(\mathbf{\hat{\beta^0}},x_j^*)\right)^2 \right]  }
+$$
+
+# Simulation
+
+The example dataset introduced above was now sampled 1000 times (different seeds, same parameter values) and we can now compare the estimates for the PIP and MSE with the empirical estimates.
+
+We first check the relation between the estimated MSE difference and the estimated PIP_C1, which should be 
+$$
+\widehat{\Delta MSE} = -4\sigma^2\Phi^{-1}(\widehat{PIP})^2
+$$
+```{r}
+use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/investigate_emp",1),paste0("sampsize",40),sep="_"),".R"))
+output = get(use)
+
+rel_mse = function(x){
+  return(-4*4*qnorm(x)^2)
+}
+
+plot(output[,"pip_The"],output[,"mse_diff"],xlab="PIP_C1",ylab="MSE_diff_insample")
+lines(seq(0.5,0.999,length=1000),sapply(seq(0.5,0.999,length=1000),rel_mse),col="red")
+```
+
+Allthough not exact, the relationship seems to follow the same trend as the derived formula. Note that this is only true for the relation with PIP_C1, since when the PIP becomes smaller than 0.5, the parabola will start to go down again. 
+
+```{r}
+plot(output[,"pip_The"],output[,"mse_diff"],xlab="PIP_C1",ylab="MSE_diff_insample",xlim=c(0,1))
+lines(seq(0,0.999,length=1000),sapply(seq(0,0.999,length=1000),rel_mse),col="red")
+```
+
+For the C1 estimate, which is always larger than 0.5, there is no issue, but when we look at the cross-validation estimate, the PIP can become smaller than 0.5 and we end up with:
+
+```{r}
+plot(output[,"pip_cv"],output[,"mse_diff_cv"],xlab="PIP_CV",ylab="MSE_diff_CV")
+lines(seq(0,0.999,length=1000),sapply(seq(0,0.999,length=1000),rel_mse),col="red")
+```
+
+
+
+## Closer look at empirical values
+
+Do we obtain a good estimate for the out of sample MSE? Therefore we compare the two estimates with the empirical MSE:
+
+```{r}
+par(mfrow=c(1,2))
+plot(output[,"mse_diff"],output[,"mse_diff_emp"],xlab="MSE_diff_insample",ylab="MSE_diff_emp")
+plot(output[,"mse_diff_cv"],output[,"mse_diff_emp"],xlab="MSE_diff_CV",ylab="MSE_diff_emp")
+```
+
+
+Do we obtain a good estimate for the conditional PIP? Therefore we compare the two estimates with the empirical PIP:
+
+```{r}
+par(mfrow=c(1,2))
+plot(output[,"pip_The"],output[,"pip_The_emp"],xlab="PIP_C1",ylab="PIP_emp")
+plot(output[,"pip_cv"],output[,"pip_The_emp"],xlab="PIP_CV",ylab="PIP_emp")
+```
+
+In both cases, there appears to be a negative association between the empirical versions and the proposed estimates. The negative linear relation for the PIP was obscured in our paper since we looked at boxplots of the difference, which are indeed centered around 0, but overshooting for smaller PIP and undershooting for larger PIP (so not uniformly differing around 0).The cloud of points which lies in the bottom-left corner correspond to estimates of beta which have the oposite sign as compared to the true value.
+
+In fact, all estimates can be viewed in function of the estimated beta11:
+
+```{r}
+par(mfrow=c(2,2))
+plot(output[,"beta1_est"],output[,"mse_diff"],xlab="beta1_est",ylab="MSE_diff_insample")
+plot(output[,"beta1_est"],output[,"mse_diff_cv"],xlab="beta1_est",ylab="MSE_diff_CV")
+plot(output[,"beta1_est"],output[,"mse_diff_emp"],xlab="beta1_est",ylab="MSE_diff_emp")
+```
+
+```{r}
+par(mfrow=c(2,2))
+plot(output[,"beta1_est"],output[,"pip_The"],xlab="beta1_est",ylab="PIP_C1")
+plot(output[,"beta1_est"],output[,"pip_cv"],xlab="beta1_est",ylab="PIP_CV")
+plot(output[,"beta1_est"],output[,"pip_The_emp"],xlab="beta1_est",ylab="PIP_emp")
+```
+
+The jump in the graph of the empirical PIP versus the estimated beta1 makes sense as the empirical conditional PIP is maximized in case the estimated regression line differs a very tiny amount from the zero line in the correct direction (i.e. a very minor negative beta1, blue line in plot below): in this latter case, although the actual mean of the estimated error is very small when comparing m1 and m0, m1 is estimating better as compared to m0 (cfr the hyperbola for MSE_diff_emp). On the other hand, in case beta1_hat is very minor positive (i.e. opposite direction of the true beta1, red line in graph below), m0 will perform better for most of the observations, albeit with a very small average error improvement. The average error improvement is comparable to the case where beta_hat was negative, but for the PIP, the proportion changes dramatically and the jump in the graph is observed. In case the correct estimate of the PIP was obtained (green line in plot below, beta1_hat = -1), the MSE difference is optimized, but individual estimates can still be better for m0 due to the error variance $\sigma$. Hence, the empirical PIP will be smaller than the one corresponding to the blue line. (See also the right plot, where a plausible range of observations $(X^*,Y^*) is shown$
+
+Graphically:
+
+```{r}
+par(mfrow=c(1,3))
+x <- c(0,1)
+y <- c(beta01,beta01+beta11)
+plot(x, y, xlab="x", ylab="y", pch=16, cex=2)
+abline(h=beta00,lty=2)
+abline(a=9.51,b=-0.02,col="blue")
+abline(a=9.49,b=0.02,col="red")
+abline(a=10,b=-1,col="darkgreen")
+
+xstar = c(rep(0,(1-prop1)*10000),rep(1,prop1*10000))
+ystar = beta01 + beta11*xstar + rnorm(10000, sd = 2)
+
+plot(xstar, ystar, xlab="xstar", ylab="ystar")
+abline(h=beta00,lty=2)
+abline(a=9.51,b=-0.02,col="blue")
+abline(a=9.49,b=0.02,col="red")
+abline(a=10,b=-1,col="darkgreen")
+title("Sigma: 2")
+
+xstar = c(rep(0,(1-prop1)*10000),rep(1,prop1*10000))
+ystar = beta01 + beta11*xstar + rnorm(10000, sd = 0.5)
+
+plot(xstar, ystar, xlab="xstar", ylab="ystar")
+abline(h=beta00,lty=2)
+abline(a=9.51,b=-0.02,col="blue")
+abline(a=9.49,b=0.02,col="red")
+abline(a=10,b=-1,col="darkgreen")
+title("Sigma: 0.5")
+```
+
+
+For the estimate of the conditional PIP, the observed sample is also used to determine the distribution of $(X^*,Y^*)$, either true assumption of normality with mean according to m1, either true resampling via CV. A large negative estimate for beta1 indicates a strong difference between m0 and m1. The estimated conditional PIP overestimates the empirical conditional PIP as the former is based on sample observations, which support that the "true" observations indeed are located closer to the overestimated extremes.
+
+
+What if we compare the empirical MSE difference and the empirical conditional PIP?
+
+```{r}
+plot(output[,"pip_The_emp"],output[,"mse_diff_emp"],xlab="PIP_emp",ylab="mse_diff_emp")
+```
+
+
+```{r}
+dat_use = data.frame(output[,c("pip_The_emp","mse_diff_emp")])
+dat_use = subset(dat_use,pip_The_emp>0.45)
+dat_use$pip_The_emp2 = dat_use$pip_The_emp*dat_use$pip_The_emp
+dat_use$x1 = qnorm(dat_use$pip_The_emp)
+dat_use$x2 = qnorm(dat_use$pip_The_emp)^2
+lm(mse_diff_emp~pip_The_emp+pip_The_emp2,data=dat_use)
+lm(mse_diff_emp~x1+x2,data=dat_use)
+```
+
+```{r}
+plot(dat_use[,"pip_The_emp"],dat_use[,"mse_diff_emp"],xlab="PIP_emp",ylab="mse_diff_emp")
+lines(seq(0,1,length=1000),-4*qnorm(seq(0,1,length=1000))+16*qnorm(seq(0,1,length=1000))^2)
+```
+
+
