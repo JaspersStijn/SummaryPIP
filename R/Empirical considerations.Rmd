@@ -238,7 +238,7 @@ plot(output[,"beta1_est"],output[,"pip_cv"],xlab="beta1_est",ylab="PIP_CV")
 plot(output[,"beta1_est"],output[,"pip_The_emp"],xlab="beta1_est",ylab="PIP_emp")
 ```
 
-The jump in the graph of the empirical PIP versus the estimated beta1 makes sense as the empirical conditional PIP is maximized in case the estimated regression line differs a very tiny amount from the zero line in the correct direction (i.e. a very minor negative beta1, blue line in plot below): in this latter case, although the actual mean of the estimated error is very small when comparing m1 and m0, m1 is estimating better as compared to m0 (cfr the hyperbola for MSE_diff_emp). On the other hand, in case beta1_hat is very minor positive (i.e. opposite direction of the true beta1, red line in graph below), m0 will perform better for most of the observations, albeit with a very small average error improvement. The average error improvement is comparable to the case where beta_hat was negative, but for the PIP, the proportion changes dramatically and the jump in the graph is observed. In case the correct estimate of the PIP was obtained (green line in plot below, beta1_hat = -1), the MSE difference is optimized, but individual estimates can still be better for m0 due to the error variance $\sigma$. Hence, the empirical PIP will be smaller than the one corresponding to the blue line. (See also the right plot, where a plausible range of observations $(X^*,Y^*) is shown$
+The jump in the graph of the empirical PIP versus the estimated beta1 makes sense as the empirical conditional PIP is maximized in case the estimated regression line differs a very tiny amount from the zero line in the correct direction (i.e. a very minor negative beta1, blue line in plot below): in this latter case, although the actual mean of the estimated error is very small when comparing m1 and m0, m1 is estimating better as compared to m0 (cfr the parabola for MSE_diff_emp). On the other hand, in case beta1_hat is very minor positive (i.e. opposite direction of the true beta1, red line in graph below), m0 will perform better for most of the observations, albeit with a very small average error improvement. The average error improvement is comparable to the case where beta_hat was negative, but for the PIP, the proportion changes dramatically and the jump in the graph is observed. In case the correct estimate of the PIP was obtained (green line in plot below, beta1_hat = -1), the MSE difference is optimized, but individual estimates can still be better for m0 due to the error variance $\sigma$. Hence, the empirical PIP will be smaller than the one corresponding to the blue line. (See also the right plot, where a plausible range of observations $(X^*,Y^*) is shown$
 
 Graphically:
 
@@ -281,21 +281,6 @@ What if we compare the empirical MSE difference and the empirical conditional PI
 
 ```{r}
 plot(output[,"pip_The_emp"],output[,"mse_diff_emp"],xlab="PIP_emp",ylab="mse_diff_emp")
-```
-
-
-```{r}
-dat_use = data.frame(output[,c("pip_The_emp","mse_diff_emp")])
-dat_use = subset(dat_use,pip_The_emp>0.45)
-dat_use$pip_The_emp2 = dat_use$pip_The_emp*dat_use$pip_The_emp
-dat_use$x1 = qnorm(dat_use$pip_The_emp)
-dat_use$x2 = qnorm(dat_use$pip_The_emp)^2
-lm(mse_diff_emp~pip_The_emp+pip_The_emp2,data=dat_use)
-lm(mse_diff_emp~x1+x2,data=dat_use)
-```
-
-```{r}
-plot(dat_use[,"pip_The_emp"],dat_use[,"mse_diff_emp"],xlab="PIP_emp",ylab="mse_diff_emp")
 lines(seq(0,1,length=1000),-4*qnorm(seq(0,1,length=1000))+16*qnorm(seq(0,1,length=1000))^2)
 ```
 

@@ -47,8 +47,6 @@ PIP_K_rep_cv = function(data,K,reps,seed=1988,alpha=0.05,plot=FALSE){
 }
 
 
-cv_out = PIP_K_rep_cv(dat_in,5,50,plot=TRUE)
-
 f = function(i,beta11,sampsize){
   set.seed(i)
   beta01 = 10
@@ -127,7 +125,7 @@ progress <- function(n) setTxtProgressBar(pb, n)
 opts <- list(progress = progress)
 output <- foreach(i=1:iterations,.packages=c("MASS","Matrix","mvnfast","LPS","caret"),
                   .options.snow = opts, .combine = rbind,.verbose = T) %dopar% { #, .errorhandling="remove"
-                    result <- f(i,-1,40)
+                    result <- f(i,1,40)
                     pip_The =  result$The
                     mse_diff = result$MSE_diff
                     pval = result$pval
@@ -143,7 +141,7 @@ stopCluster(cl)
 
 output_keep=output
 
-save(output,file=paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/investigate_emp",1),paste0("sampsize",40),sep="_"),".R"))
+save(output,file=paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/investigate_emp",paste(1,"pos")),paste0("sampsize",40),sep="_"),".R"))
 
 
 rel_mse = function(x){
@@ -419,3 +417,6 @@ max(output[output[,"pip_The_emp"]>0.5,"beta1_est"])
 load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/investigate_emp",1),paste0("sampsize",40),sep="_"),".R"))
 
 
+plot(output[,"pip_The_emp"],output[,"mse_diff_emp"],xlab="PIP_emp",ylab="mse_diff_emp")
+
+lines(seq(0,1,length=1000),-4*qnorm(seq(0,1,length=1000))+16*qnorm(seq(0,1,length=1000))^2)
