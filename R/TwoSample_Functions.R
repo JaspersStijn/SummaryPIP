@@ -754,11 +754,11 @@ do_SIM_GBM_new = function(i, sampsize){
   CV5 = PIP_K_cv(dat,5,"gbm",alpha=0.05)
   
   PIP = CV5$PIP_cv 
-  mse1_CV = CV5$MSE1 
-  mse0_CV = CV5$MSE0 
+  mse1_CV = CV5$mse1 
+  mse0_CV = CV5$mse0 
   
 
-  rep_CV5 = PIP_K_rep_cv(dat,5,"gbm",alpha=0.05,reps=20)
+  rep_CV5 = PIP_K_rep_cv(dat,5,"gbm",alpha=0.05,reps=10)
   
   #Split sample
   select = sample(nrow(dat),nrow(dat)/2)
@@ -786,7 +786,8 @@ do_SIM_GBM_new = function(i, sampsize){
   
   
   return(list("PIP_SS"=pip_SS,"PIP_CV5" = PIP,"PIP_rep_CV5" = rep_CV5$PIP_cv,
-              "PIP_emp" = pip_emp))
+              "PIP_emp" = pip_emp,"mse1_CV"=mse1_CV, "mse0_CV"=mse0_CV,
+              "mse1_rep_CV"=rep_CV5$mse1, "mse0_rep_CV"=rep_CV5$mse0))
 }
 
 

@@ -354,10 +354,16 @@ for(beta11 in c(0,-1,-4)){
 
 
 par(mfrow=c(1,1))
-plot(output[,c("C1")] , output[,"emp_cond"])
+plot(output[,c("rep_CV5")] , output[,"emp_cond"])
+points(output[,c("C1")] , output[,"emp_cond"],col="red")
 
 
+plot(output[,c("rep_CV5")] - output[,"emp_cond"])
+points(output[,c("C1")] - output[,"emp_cond"],col="red")
 
+
+abline(v=mean(output[,c("rep_CV5")]))
+abline(v=mean(output[,c("emp_cond")]),col="blue")
 
 # Check consistency
 par(mfrow=c(2,2))
@@ -458,7 +464,9 @@ for(beta11 in c(0,-1,-4)){
     effect = c(effect,rep(beta11,3))
     samplesize = c(samplesize,rep(sampsize,3))
     measure = c(measure,c("p-value","PIP","MSE"))
-    cat(beta11,"&",sampsize,"&",format(round(correct_pval, digits=2), nsmall = 2),"&",format(round(correct_MSE, digits=2), nsmall = 2),"&",format(round(correct_LOO, digits=2), nsmall = 2),"&",format(round(correct_CV5, digits=2), nsmall = 2),"&",format(round(correct_repCV5, digits=2), nsmall = 2),paste0("\\","\\"),"\n")
+    #cat(beta11,"&",sampsize,"&",format(round(correct_pval, digits=2), nsmall = 2),"&",format(round(correct_MSE, digits=2), nsmall = 2),"&",format(round(correct_LOO, digits=2), nsmall = 2),"&",format(round(correct_CV5, digits=2), nsmall = 2),"&",format(round(correct_repCV5, digits=2), nsmall = 2),paste0("\\","\\"),"\n")
+    cat(beta11,"&",sampsize,"&",format(round(correct_pval, digits=2), nsmall = 2),"&",format(round(correct_MSE, digits=2), nsmall = 2),"&",format(round(correct_repCV5, digits=2), nsmall = 2),paste0("\\","\\"),"\n")
+    
   }
 }
 library(ggplot2)
@@ -569,13 +577,15 @@ for(beta11 in c(0,-1,-4)){
     if(beta11 == 0){correct_PIP = mean(output[,"PIP_lower"]<=0.5)}
     if(beta11 != 0) {correct_PIP = mean(output[,"PIP_lower"]>0.5)}
     
-    
+    if(beta11 == 0){correct_PIP_test = mean(output[,"PIP"]<=0.5)}
+    if(beta11 != 0) {correct_PIP_test = mean(output[,"PIP"]>0.5)}
+
     use = load(paste0(paste(paste0("/Volumes/GoogleDrive/My Drive/SummaryPIP/R/Output_Sims/sim_effect_new_exp",abs(beta11)),paste0("sampsize",sampsize),sep="_"),".R"))
     output = get(use)
     if(beta11 == 0){correct_pval  = mean(output[,"pval_mod1"]>=0.05);correct_MSE = mean(output[,"mse0_rep_CV"]<output[,"mse1_rep_CV"])}
     if(beta11 != 0) {correct_pval  =mean(output[,"pval_mod1"]<0.05);correct_MSE = mean(output[,"mse0_rep_CV"]>output[,"mse1_rep_CV"])}
     
-    cat(format(round(100*correct_pval, digits=2), nsmall = 2),"&",format(round(100*correct_MSE, digits=2), nsmall = 2),"&",format(round(100*correct_PIP, digits=2), nsmall = 2),"\n")
+    cat(format(round(100*correct_pval, digits=2), nsmall = 2),"&",format(round(100*correct_MSE, digits=2), nsmall = 2),"&",format(round(100*correct_PIP, digits=2), nsmall = 2),"&",format(round(100*correct_PIP_test, digits=2), nsmall = 2),"\n")
     
   }}
 
@@ -583,10 +593,9 @@ for(beta11 in c(0,-1,-4)){
 mod0$finalModel
 
 # RF
-sampsize=20
 require(doSNOW)
 require(ggplot2)
-for(sampsize in c(60,100)){
+for(sampsize in c(60,100,400)){
   cl <- makeCluster(7)
   registerDoSNOW(cl)
   iterations <- 10000
@@ -600,12 +609,17 @@ for(sampsize in c(60,100)){
                       pip_CV5=result$PIP_CV5
                       pip_rep_CV5=result$PIP_rep_CV5
                       pip_emp = result$PIP_emp
-                      return(cbind(pip_SS,pip_CV5,pip_rep_CV5,pip_emp))
+                      mse1_CV = result$mse1_CV
+                      mse0_CV = result$mse0_CV
+                      mse1_rep_CV = result$mse1_rep_CV
+                      mse0_rep_CV = result$mse0_rep_CV
+                      
+                      return(cbind(pip_SS,pip_CV5,pip_rep_CV5,pip_emp,mse1_CV,mse0_CV,mse1_rep_CV,mse0_rep_CV))
                     }
   close(pb)
   stopCluster(cl)
   
-  save(output,file=paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
+  save(output,file=paste0(paste("R/Output_Sims/sim_GBM_NL1000",paste0("sampsize",sampsize),sep="_"),".R"))
   
   colnames(output)[1] = "SS"
   colnames(output)[2] ="CV5"
@@ -620,7 +634,7 @@ for(sampsize in c(60,100)){
 
 par(mfrow=c(2,2))
 for( sampsize in c(40,60,100,400)){
-  use = load(paste0(paste("R/Output_Sims/sim_GBM_NL",paste0("sampsize",sampsize),sep="_"),".R"))
+  use = load(paste0(paste("R/Output_Sims/sim_GBM_NL1000",paste0("sampsize",sampsize),sep="_"),".R"))
   output = get(use)
   colnames(output)[1] = "SS"
   colnames(output)[2] ="CV5"
@@ -628,22 +642,21 @@ for( sampsize in c(40,60,100,400)){
   colnames(output)[4] ="emp_cond"
   use_diff  = output[,c("CV5","rep_CV5","SS")] - output[,"emp_cond"]
   means = apply(use_diff,2,mean)
-  boxplot(use_diff,main=paste0("Sample size: ",sampsize))
-  abline(h=0,lwd=2,lty=2)
+  plot(output[,"emp_cond"],output[,"rep_CV5"])
+  # boxplot(use_diff,main=paste0("Sample size: ",sampsize))
+  # abline(h=0,lwd=2,lty=2)
+  abline(a=0,b=1,col="red",lwd=2)
   points(means,pch=20)
-  print(apply(output[,c("CV5","rep_CV5","SS")]>0.5,2,sum)/10000)
+  print(apply(output[,c("SS","CV5","rep_CV5")]>0.5,2,sum)/10000)
+  print(apply(output[,c("mse1_CV","mse1_rep_CV")]<output[,c("mse0_CV","mse0_rep_CV")],2,sum)/10000)
 }
-
 
 i=1
 sampsize=400
 
 
-
-
 apply(use_diff,2,var)
 boxplot(output)
-
 
 
 
